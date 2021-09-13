@@ -25,7 +25,6 @@ Server::Server(int port): _port(port) {
         throw Exception("Bind to port/ip exception");
     if (listen(descriptor, SOMAXCONN) < 0)
         throw Exception("Listening exception");
-    allusers["jnoma"] = NULL;
 }
 
 Server::~Server() {
