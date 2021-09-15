@@ -1,5 +1,6 @@
 #include "Server.hpp"
 #include "Client.hpp"
+#include "Channel.hpp"
 
 Server::Server(int port): _port(port) {
     timeout.tv_sec = 5;
@@ -33,6 +34,7 @@ Server::Server(int port): _port(port) {
 
 Server::~Server() {
     close(descriptor);
+    allchannels.clear();
     cleaner();
 }
 
@@ -88,7 +90,7 @@ void Server::handleConnections() {
     //std::cout << "Handle connection\n";
     if (FD_ISSET(descriptor, &read_current)) {
         try{
-            Client *client_sock = new Client(descriptor, allusers);
+            Client *client_sock = new Client(descriptor, allusers, this);
             allclients.push_back(client_sock);
         }catch (Exception &e){
             std::cout << "Connection refused\n";

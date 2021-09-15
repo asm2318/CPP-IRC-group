@@ -16,6 +16,7 @@
 #include <sstream>
 
 #include "TextHolder.hpp"
+class Server;
 
 enum Status{
     waitForNick,
@@ -29,6 +30,7 @@ enum Status{
 class Client{
 
 private:
+    
     int descriptor;
     struct timeval timer;
     struct sockaddr_in addr;
@@ -50,9 +52,11 @@ private:
     std::string username;
     std::string realname;
     std::string identifier;
+    
+    Server *server;
 
 public:
-    Client(int &port, std::map<std::string, Client *> &users);
+    Client(int &port, std::map<std::string, Client *> &users, Server *_server);
     ~Client();
     void setTimer();
     TextHolder *getBuffer();

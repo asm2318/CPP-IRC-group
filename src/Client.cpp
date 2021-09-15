@@ -1,6 +1,7 @@
 #include "Client.hpp"
+#include "Server.hpp"
 
-Client::Client(int &port, std::map<std::string, Client *> &users): allusers(&users), nickname(""), username(""), realname("") {
+Client::Client(int &port, std::map<std::string, Client *> &users, Server *_server): allusers(&users), nickname(""), username(""), realname(""), server(_server) {
     int addrLen = sizeof(addr);
     descriptor = accept(port, (sockaddr *) &addr, (socklen_t *)&addrLen);
     if (descriptor < 0)
@@ -120,10 +121,6 @@ void Client::formResponse(std::string const &str) {
             }
             break ;
         }
-        /*case 321: {
-            buffer->fillBuffer("321\n\r\n");
-            break ;
-        }*/
         case 322: {
             buffer->fillBuffer(" 322 " + nickname + " #onechannel 1 :topic\n\r\n");
             break ;
@@ -132,11 +129,6 @@ void Client::formResponse(std::string const &str) {
             buffer->fillBuffer(" 323 " + nickname + "\n\r\n");
             break ;
         }
-        /*case 311: {
-            std::cout << "311\n";
-            buffer->fillBuffer("311 " + nickname + " " + username + " 127.0.0.1 * :" + realname + "\r\n");
-            break ;
-        }*/
         case 431: {
             buffer->fillBuffer(" 431 * :No nickname given\n\r\n");
             break ;
@@ -165,13 +157,12 @@ void Client::sendResponse()
         if (code > 430 && code < 437) {
             std::cout << "Status: nick | nick = " << nickname << " | user = " << username << " | realname = " << realname << "\n";
             status = waitForNick;
-        } else if (code == 321 || code == 322) {
+        } else if (code == 322) {
             status = waitForResponseChain;
             code++;
         } else {
             std::cout << "Status: request | nick = " << nickname << " | user = " << username << " | realname = " << realname << "\n";
             status = waitForRequest;
-            //code = 0;
         }
         
     }

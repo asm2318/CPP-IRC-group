@@ -1,8 +1,8 @@
 SRCS	=	src/main.cpp		src/Server.cpp		src/Client.cpp\
-		src/Exception.cpp	src/TextHolder.cpp
+		src/Exception.cpp	src/TextHolder.cpp	src/Channel.cpp
 
 INCL	=	src/Server.hpp		src/Client.hpp		src/Exception.hpp\
-		src/TextHolder.hpp
+		src/TextHolder.hpp	src/Channel.hpp
 
 OBJS	=	${SRCS:.cpp=.o}
 
