@@ -20,9 +20,9 @@ public:
     void concatenate();
     bool isFull();
     bool endsWith(std::string const &ending);
-    std::string getNick();
     size_t bufferSize();
     bool isQuit();
+    bool isList();
 };
 #endif
 

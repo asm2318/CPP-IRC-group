@@ -2,6 +2,7 @@
 #define SERVER_HPP
 #define BUFFERSIZE 1024*1024
 #define TIMEOUT 120
+#define HOSTNAME ":localhost"
 #include <netinet/in.h>
 #include <sys/select.h>
 #include <sys/socket.h>
@@ -24,6 +25,8 @@ private:
     int _port;
     int descriptor;
     struct timeval timeout;
+    struct sockaddr_in addr;
+    //std::string ip_address_str;
     
 public:
     Server(int port);

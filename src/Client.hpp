@@ -1,6 +1,8 @@
 #ifndef CLIENT_HPP
 #define CLIENT_HPP
+#include <arpa/inet.h>
 #include <fcntl.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -19,6 +21,7 @@ enum Status{
     waitForNick,
     waitForRequest,
     waitForResponse,
+    waitForResponseChain,
     Error,
     Quit
 };
@@ -28,6 +31,8 @@ class Client{
 private:
     int descriptor;
     struct timeval timer;
+    struct sockaddr_in addr;
+    char ip_address_str[INET_ADDRSTRLEN];
     
     int responseSize;
     int responsePos;
@@ -37,10 +42,14 @@ private:
 
     TextHolder *buffer;
     std::map<std::string, Client*> *allusers;
-    std::string nickname;
     int code;
     
     bool isAuthorized;
+    
+    std::string nickname;
+    std::string username;
+    std::string realname;
+    std::string identifier;
 
 public:
     Client(int &port, std::map<std::string, Client *> &users);
@@ -51,11 +60,13 @@ public:
     int &getDescriptor();
     Status getStatus();
     struct timeval &getTimer();
-    void handleRequest();
-    void formResponse();
+    void handleRequest(std::string const &str);
+    void formResponse(std::string const &str);
     void sendResponse();
     bool isInMap();
     std::string &getNick();
+    bool fillUserData();
+    void bufferNick();
 };
 
 #include "Server.hpp"

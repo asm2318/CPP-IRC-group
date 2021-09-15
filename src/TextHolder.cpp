@@ -1,9 +1,15 @@
 #include "TextHolder.hpp"
 #include "Client.hpp"
 
-TextHolder::TextHolder(): buffer(""), content(""){}
+TextHolder::TextHolder() {
+    //std::cout << "Textholder start\n";
+    buffer = "";
+    content = "";
+    //std::cout << "Textholder end\n";
+}
 
 TextHolder::~TextHolder() {
+    //std::cout << "Textholder destructor\n";
     buffer.clear();
     content.clear();
 }
@@ -47,27 +53,20 @@ bool TextHolder::endsWith(std::string const &ending) {
     return std::equal(ending.rbegin(), ending.rend(), buffer.rbegin());
 }
 
-std::string TextHolder::getNick() {
-    size_t pos1 = 0, pos2 = 0;
-    pos1 = buffer.find("NICK ");
-    if (pos1 == std::string::npos)
-        return ("");
-    pos1 += 5;
-    pos2 = buffer.find("\n", pos1);
-    if (pos2 == std::string::npos)
-        return ("");
-    if (buffer[pos2 - 1] == '\r')
-        pos2--;
-    return (buffer.substr(pos1, pos2 - pos1));
-}
-
 size_t TextHolder::bufferSize() {
     return (buffer.size());
 }
 
 bool TextHolder::isQuit()
 {
-    if (!buffer.compare("QUIT :\r\n"))
+    if (!buffer.compare(0, 6, "QUIT :"))
+        return (true);
+    return (false);
+}
+
+bool TextHolder::isList()
+{
+    if (!buffer.compare("LIST\r\n") || !buffer.compare(0, 5, "LIST "))
         return (true);
     return (false);
 }

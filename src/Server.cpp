@@ -7,7 +7,6 @@ Server::Server(int port): _port(port) {
     descriptor = socket(AF_INET, SOCK_STREAM, 0);
     if (descriptor < 0)
         throw Exception("Socket creation exception");
-    struct sockaddr_in addr;
     bzero(&addr, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htons(INADDR_ANY);
@@ -25,6 +24,11 @@ Server::Server(int port): _port(port) {
         throw Exception("Bind to port/ip exception");
     if (listen(descriptor, SOMAXCONN) < 0)
         throw Exception("Listening exception");
+    /*struct in_addr ipAddr = addr.sin_addr;
+    char ip_addr_str[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &ipAddr, ip_addr_str, INET_ADDRSTRLEN );
+    ip_address_str = std::string(ip_addr_str);*/
+    allusers["jnoma"] = NULL;
 }
 
 Server::~Server() {
@@ -50,7 +54,7 @@ void Server::refillSets() {
         }
         if ((*itC)->getStatus() == waitForNick || (*itC)->getStatus() == waitForRequest)
             FD_SET((*itC)->getDescriptor(), &read_current);
-        else if ((*itC)->getStatus() == waitForResponse)
+        else if ((*itC)->getStatus() == waitForResponse || (*itC)->getStatus() == waitForResponseChain)
             FD_SET((*itC)->getDescriptor(), &write_current);
         itC++;
     }
@@ -108,7 +112,7 @@ void Server::readRequests() {
                 bzero(&buf, ret);
                 std::cout << "Client_" << (*itC)->getDescriptor() << ": " << (*itC)->getBuffer()->getBuffer() << "\n";
                 if ((*itC)->getBuffer()->isFull())
-                    (*itC)->handleRequest();
+                    (*itC)->handleRequest(HOSTNAME);
                 itC++;
             }
             else if (ret <= 0) {
@@ -130,6 +134,8 @@ void Server::sendResponses() {
     while (itC != allclients.end())
     {
         descr = (*itC)->getDescriptor();
+        if ((*itC)->getStatus() == waitForResponseChain)
+            (*itC)->formResponse(HOSTNAME);
         if (FD_ISSET(descr, &write_current))
             (*itC)->sendResponse();
         itC++;

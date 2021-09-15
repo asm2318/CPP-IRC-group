@@ -1,7 +1,6 @@
 #include "Client.hpp"
 
-Client::Client(int &port, std::map<std::string, Client *> &users): allusers(&users), nickname("") {
-    struct sockaddr_in addr;
+Client::Client(int &port, std::map<std::string, Client *> &users): allusers(&users), nickname(""), username(""), realname("") {
     int addrLen = sizeof(addr);
     descriptor = accept(port, (sockaddr *) &addr, (socklen_t *)&addrLen);
     if (descriptor < 0)
@@ -19,13 +18,16 @@ Client::Client(int &port, std::map<std::string, Client *> &users): allusers(&use
     buffer = new TextHolder();
     code = 0;
     isAuthorized = false;
-    //std::cout << "Client_" << descriptor << " connected\n";
+    struct in_addr ipAddr = addr.sin_addr;
+    inet_ntop(AF_INET, &ipAddr, ip_address_str, INET_ADDRSTRLEN );
+    std::cout << "Client_" << descriptor << " connected\n";
 }
     
 Client::~Client() {
     std::cout << "Client_" << descriptor << " has disconnected\n";
     close(descriptor);
     delete buffer;
+    buffer = NULL;
 }
 
 void Client::setTimer() {
@@ -37,6 +39,7 @@ TextHolder *Client::getBuffer() {
 }
 
 void Client::resetBuffer() {
+    //std::cout << "Buffer reset\n";
     delete buffer;
     buffer = new TextHolder();
 }
@@ -53,45 +56,93 @@ struct timeval &Client::getTimer() {
     return (timer);
 }
 
-void Client::handleRequest() {
+void Client::handleRequest(std::string const &str) {
     if (buffer->isQuit()) {
         status = Quit;
         return ;
     }
+    std::cout << "Username.empty() = " << username.empty() << "\n";
+    
+    if (username.empty() && fillUserData())
+    {
+        std::cout << " | Fill user: username = " << username << " | name = " << realname << "\n";
+        if (username.empty())
+            username = nickname;
+        if (realname.empty())
+            realname = nickname;
+        if (code)
+        {
+            formResponse(str);
+            return ;
+        }
+    }
+    
     if (status == waitForNick) {
         nickname.clear();
-        nickname = buffer->getNick();
-        if (nickname.empty()){
+        bufferNick();
+        if (nickname.empty())
             code = 431;
-            formResponse();
-        } else if (allusers->count(nickname)) {
+        else if (allusers->count(nickname))
             code = 433;
-            formResponse();
-        } else {
+        else {
             allusers->insert(std::make_pair(nickname, this));
             isAuthorized = true;
             code = 1;
-            formResponse();
         }
-    } else if (status == waitForRequest) {
+    } else if (status == waitForRequest)
+    {
         std::cout << "RECEIVED: " << buffer->getBuffer() << "\n";
-        resetBuffer();
+        if (buffer->isList())
+            code = 322;
+        else {
+            resetBuffer();
+            return ;
+        }
     }
+    formResponse(str);
 }
 
-void Client::formResponse() {
+
+
+void Client::formResponse(std::string const &str) {
     resetBuffer();
+    buffer->fillBuffer(str);
     switch (code) {
         case 1: {
-            buffer->fillBuffer("001 RPL_WELCOME\nWelcome to the Internet Relay Network\n" + nickname + "!" + nickname + "@127.0.0.1\r\n");
+            //std::cout << "USERNAME: " << username << "\n";
+            if (!username.empty()) {
+                identifier = nickname + "!" + username + "@" + ip_address_str;
+                buffer->fillBuffer(" 001 " + nickname + " :Welcome to the Internet Relay Network " + identifier + "\n\r\n");
+            } else {
+                resetBuffer();
+                status = waitForRequest;
+                return ;
+            }
             break ;
         }
+        /*case 321: {
+            buffer->fillBuffer("321\n\r\n");
+            break ;
+        }*/
+        case 322: {
+            buffer->fillBuffer(" 322 " + nickname + " #onechannel 1 :topic\n\r\n");
+            break ;
+        }
+        case 323: {
+            buffer->fillBuffer(" 323 " + nickname + "\n\r\n");
+            break ;
+        }
+        /*case 311: {
+            std::cout << "311\n";
+            buffer->fillBuffer("311 " + nickname + " " + username + " 127.0.0.1 * :" + realname + "\r\n");
+            break ;
+        }*/
         case 431: {
-            buffer->fillBuffer("431 ERR_NONICKNAMEGIVEN\n* :No nickname given\r\n");
+            buffer->fillBuffer(" 431 * :No nickname given\n\r\n");
             break ;
         }
         case 433: {
-            buffer->fillBuffer("433 ERR_NICKNAMEINUSE\n" + nickname + " :Nickname is already in use\r\n");
+            buffer->fillBuffer(" 433 * " + nickname + " :Nickname is already in use\n\r\n");
             break ;
         }
     }
@@ -102,6 +153,7 @@ void Client::formResponse() {
 
 void Client::sendResponse()
 {
+    std::cout << "CODE: " << code << " | RESPONSE IS: #" << buffer->getBuffer() << "#\n";
     int send_size = send(descriptor, buffer->getBuffer().substr(responsePos, responseSize - responsePos - 1).c_str(), responseSize - responsePos - 1, 0);
     if (send_size <= 0) {
         status = Error;
@@ -110,17 +162,18 @@ void Client::sendResponse()
     responsePos += send_size;
     if (responsePos == responseSize - 1) {
         resetBuffer();
-        if (code > 430 && code < 437)
-        {
-            std::cout << "Status: nick\n";
+        if (code > 430 && code < 437) {
+            std::cout << "Status: nick | nick = " << nickname << " | user = " << username << " | realname = " << realname << "\n";
             status = waitForNick;
-        }
-        else
-        {
-            std::cout << "Status: request | nick = " << nickname << "\n";
+        } else if (code == 321 || code == 322) {
+            status = waitForResponseChain;
+            code++;
+        } else {
+            std::cout << "Status: request | nick = " << nickname << " | user = " << username << " | realname = " << realname << "\n";
             status = waitForRequest;
+            //code = 0;
         }
-        code = 0;
+        
     }
 }
 
@@ -132,4 +185,49 @@ bool Client::isInMap()
 std::string &Client::getNick()
 {
     return (nickname);
+}
+
+bool Client::fillUserData() {
+    size_t pos1 = 0, pos2 = 0;
+    pos1 = buffer->getBuffer().find("USER ");
+    if (pos1 == std::string::npos)
+        return (false);
+    pos1 += 5;
+    while ((buffer->getBuffer())[pos1] == ' ')
+        pos1++;
+    pos2 = buffer->getBuffer().find(" ", pos1 + 1);
+    if (pos2 == std::string::npos)
+        return (false);
+    username.clear();
+    username = buffer->getBuffer().substr(pos1, pos2 - pos1);
+    while ((pos1 = buffer->getBuffer().find(" ", pos2)) != std::string::npos)
+        pos2 = pos1 + 1;
+    pos2--;
+    pos1 = buffer->getBuffer().find("\r\n", pos2);
+    if (pos1 == std::string::npos)
+    {
+        username.clear();
+        return (false);
+    }
+    realname.clear();
+    realname = buffer->getBuffer().substr(pos2, pos1 - pos2);
+    return (true);
+}
+
+void Client::bufferNick() {
+    size_t pos1 = 0, pos2 = 0;
+    pos1 = buffer->getBuffer().find("NICK ");
+    if (pos1 == std::string::npos) {
+        nickname = "";
+        return ;
+    }
+    pos1 += 5;
+    pos2 = buffer->getBuffer().find("\r\n", pos1);
+    if (pos2 == std::string::npos) {
+        nickname = "";
+        return ;
+    }
+    /*if (buffer[pos2 - 1] == '\r')
+        pos2--;*/
+    nickname = buffer->getBuffer().substr(pos1, pos2 - pos1);
 }
