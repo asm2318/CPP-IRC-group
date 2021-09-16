@@ -1,4 +1,5 @@
 #include "Client.hpp"
+#include "Channel.hpp"
 #include "Server.hpp"
 
 Client::Client(int &port, std::map<std::string, Client *> &users, Server *_server): allusers(&users), nickname(""), username(""), realname(""), server(_server) {
@@ -14,6 +15,7 @@ Client::Client(int &port, std::map<std::string, Client *> &users, Server *_serve
         throw Exception("Client fcntl exception");
     requestLen = 0;
     status = waitForNick;
+    reservedStatus = Null;
     responsePos = 0;
     gettimeofday(&timer, 0);
     buffer = new TextHolder();
@@ -21,6 +23,7 @@ Client::Client(int &port, std::map<std::string, Client *> &users, Server *_serve
     isAuthorized = false;
     struct in_addr ipAddr = addr.sin_addr;
     inet_ntop(AF_INET, &ipAddr, ip_address_str, INET_ADDRSTRLEN );
+    chainCounter = 0;
     std::cout << "Client_" << descriptor << " connected\n";
 }
     
@@ -58,15 +61,16 @@ struct timeval &Client::getTimer() {
 }
 
 void Client::handleRequest(std::string const &str) {
+    std::cout << "\n\033[1;31mClient_" << descriptor << " | " << nickname << " | RECEIVED: <\033[0m" << buffer->getBuffer() << "\033[1;31m>END\033[0m\n";
     if (buffer->isQuit()) {
         status = Quit;
         return ;
     }
-    std::cout << "Username.empty() = " << username.empty() << "\n";
+    //std::cout << "Username.empty() = " << username.empty() << "\n";
     
     if (username.empty() && fillUserData())
     {
-        std::cout << " | Fill user: username = " << username << " | name = " << realname << "\n";
+        //std::cout << " | Fill user: username = " << username << " | name = " << realname << "\n";
         if (username.empty())
             username = nickname;
         if (realname.empty())
@@ -90,12 +94,20 @@ void Client::handleRequest(std::string const &str) {
             isAuthorized = true;
             code = 1;
         }
-    } else if (status == waitForRequest)
-    {
-        std::cout << "RECEIVED: " << buffer->getBuffer() << "\n";
-        if (buffer->isList())
-            code = 322;
-        else {
+    } else if (status == waitForRequest) {
+        if (buffer->isList()) {
+            chainCounter = server->getChannelsList()->size();
+            channel = server->getChannelsList()->begin();
+            if (channel != server->getChannelsList()->end())
+                code = 322;
+            else
+                code = 323;
+        } else if (buffer->isJoin()) {
+            if (!joinChannel()) {
+                resetBuffer();
+                return ;
+            }
+        } else {
             resetBuffer();
             return ;
         }
@@ -106,8 +118,18 @@ void Client::handleRequest(std::string const &str) {
 
 
 void Client::formResponse(std::string const &str) {
-    resetBuffer();
-    buffer->fillBuffer(str);
+    if (code == 330) {
+        buffer->fillMessage(":" + identifier + " " + buffer->getBuffer());
+        std::map<std::string, Client *>::iterator it = (*channel).second->getUsers()->begin();
+        while (it != (*channel).second->getUsers()->end()) {
+            std::cout << "Check user: " << (*it).first << "\n";
+            (*it).second->outerRefillBuffer(buffer->getMessage());
+            it++;
+        }
+    } else if (reservedStatus == Null){
+        resetBuffer();
+        buffer->fillBuffer(str);
+    }
     switch (code) {
         case 1: {
             //std::cout << "USERNAME: " << username << "\n";
@@ -122,11 +144,20 @@ void Client::formResponse(std::string const &str) {
             break ;
         }
         case 322: {
-            buffer->fillBuffer(" 322 " + nickname + " #onechannel 1 :topic\n\r\n");
+            
+            buffer->fillBuffer(" 322 " + nickname + " " + (*channel).first + " " + (*channel).second->getUsersNumberStr() + " :" + (*channel).second->getTopic() + "\n\r\n");
             break ;
         }
         case 323: {
             buffer->fillBuffer(" 323 " + nickname + "\n\r\n");
+            break ;
+        }
+        case 331: {
+            buffer->fillBuffer(" 331 " + nickname + " " + (*channel).first + " :No topic is set\n\r\n");
+            break ;
+        }
+        case 332: {
+            buffer->fillBuffer(" 332 " + nickname + " " + (*channel).first + " :" + (*channel).second->getTopic() + "\n\r\n");
             break ;
         }
         case 431: {
@@ -145,7 +176,7 @@ void Client::formResponse(std::string const &str) {
 
 void Client::sendResponse()
 {
-    std::cout << "CODE: " << code << " | RESPONSE IS: #" << buffer->getBuffer() << "#\n";
+    std::cout << "\n\033[1;32mCODE: " << code << " | RESPONSE TO " << nickname << " IS: <\033[0m" << buffer->getBuffer() << "\033[1;32m>END\033[0m\n";
     int send_size = send(descriptor, buffer->getBuffer().substr(responsePos, responseSize - responsePos - 1).c_str(), responseSize - responsePos - 1, 0);
     if (send_size <= 0) {
         status = Error;
@@ -153,18 +184,41 @@ void Client::sendResponse()
     }
     responsePos += send_size;
     if (responsePos == responseSize - 1) {
-        resetBuffer();
         if (code > 430 && code < 437) {
-            std::cout << "Status: nick | nick = " << nickname << " | user = " << username << " | realname = " << realname << "\n";
+            //std::cout << "Status: nick | nick = " << nickname << " | user = " << username << " | realname = " << realname << "\n";
             status = waitForNick;
         } else if (code == 322) {
             status = waitForResponseChain;
-            code++;
+            channel++;
+            if (channel == server->getChannelsList()->end())
+                code++;
+        } else if (code == 330) {
+            //std::cout << "GET 330\n";
+            status = waitForResponseChain;
+            if ((*channel).second->getTopic().empty())
+                code = 331;
+            else
+                code = 332;
         } else {
-            std::cout << "Status: request | nick = " << nickname << " | user = " << username << " | realname = " << realname << "\n";
+            //std::cout << "Status: request | nick = " << nickname << " | user = " << username << " | realname = " << realname << "\n";
             status = waitForRequest;
+            
+            /*if (code == 1) {
+                channel = server->getChannelsList()->find("#general");
+                if (channel != server->getChannelsList()->end()) {
+                    channel->second->addUser(this);
+                    std::cout << nickname << " HAS BEEN ADDED TO CHANNEL " << channel->second->getName() << "\n";
+                }
+            }*/
         }
-        
+        if (reservedStatus == Null) {
+            resetBuffer();
+            //std::cout << "Response: buffer reset\n";
+        }
+        else {
+            handleReserved();
+            //std::cout << "Response: handle reserved\n";
+        }
     }
 }
 
@@ -221,4 +275,48 @@ void Client::bufferNick() {
     /*if (buffer[pos2 - 1] == '\r')
         pos2--;*/
     nickname = buffer->getBuffer().substr(pos1, pos2 - pos1);
+}
+
+bool Client::joinChannel() {
+    std::cout << "Joining channel\n";
+    size_t pos1 = 5;
+    size_t pos2 = buffer->getBuffer().find("\r\n", pos1);
+    if (pos2 == std::string::npos)
+        return (false);
+    std::string channelName = buffer->getBuffer().substr(pos1, pos2 - pos1);
+    channel = server->getChannelsList()->find(channelName);
+    if (channel != server->getChannelsList()->end())
+    {
+        (*channel).second->addUser(this);
+        code = 330;
+        return (true);
+    }
+    return (false);
+}
+
+void Client::setStatus(Status st) {
+    status = st;
+}
+
+void Client::outerRefillBuffer(std::string const &str) {
+    if (!buffer->getBuffer().empty()) {
+        reservedStatus = waitForResponse;
+        buffer->fillBufferReserved(str);
+    } else {
+        status = waitForResponse;
+        buffer->fillBuffer(str);
+        responsePos = 0;
+        responseSize = buffer->bufferSize();
+    }
+}
+
+void Client::handleReserved() {
+    if (reservedStatus == Null)
+        return ;
+    std::swap(status, reservedStatus);
+    buffer->handleReserved();
+    if (reservedStatus == waitForRequest && buffer->reserveIsEmpty())
+        reservedStatus = Null;
+    responsePos = 0;
+    responseSize = buffer->bufferSize();
 }

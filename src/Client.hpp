@@ -10,6 +10,7 @@
     #include <wait.h>
 #endif
 
+#include <algorithm>
 #include <cstdio>
 #include <iostream>
 #include <map>
@@ -17,6 +18,7 @@
 
 #include "TextHolder.hpp"
 class Server;
+class Channel;
 
 enum Status{
     waitForNick,
@@ -24,7 +26,8 @@ enum Status{
     waitForResponse,
     waitForResponseChain,
     Error,
-    Quit
+    Quit,
+    Null
 };
 
 class Client{
@@ -54,6 +57,10 @@ private:
     std::string identifier;
     
     Server *server;
+    
+    size_t chainCounter;
+    std::map<std::string, Channel *>::iterator channel;
+    Status reservedStatus;
 
 public:
     Client(int &port, std::map<std::string, Client *> &users, Server *_server);
@@ -71,6 +78,10 @@ public:
     std::string &getNick();
     bool fillUserData();
     void bufferNick();
+    bool joinChannel();
+    void setStatus(Status st);
+    void outerRefillBuffer(std::string const & str);
+    void handleReserved();
 };
 
 #include "Server.hpp"

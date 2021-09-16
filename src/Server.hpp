@@ -22,7 +22,7 @@ private:
     fd_set write_current;
     std::vector<Client *> allclients;
     std::map<std::string, Client *> allusers;
-    std::map<std::string, Channel> allchannels;
+    std::map<std::string, Channel *> allchannels;
     char buf[BUFFERSIZE + 1];
     int _port;
     int descriptor;
@@ -42,6 +42,7 @@ public:
     void readRequests();
     void sendResponses();
     void cleaner();
+    std::map<std::string, Channel *> *getChannelsList();
 };
 
 #endif

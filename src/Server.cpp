@@ -29,12 +29,23 @@ Server::Server(int port): _port(port) {
     char ip_addr_str[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &ipAddr, ip_addr_str, INET_ADDRSTRLEN );
     ip_address_str = std::string(ip_addr_str);*/
+    
+    
     allusers["jnoma"] = NULL;
+    allchannels["#general"] = new Channel("#general");
+    allchannels["#admin"] = new Channel("#admin");
 }
 
 Server::~Server() {
     close(descriptor);
-    allchannels.clear();
+    
+    std::map<std::string, Channel *>::iterator it = allchannels.begin();
+    while (it != allchannels.end())
+    {
+        delete (*it).second;
+        it = allchannels.erase(it);
+    }
+    //allchannels.clear();
     cleaner();
 }
 
@@ -112,7 +123,7 @@ void Server::readRequests() {
                 (*itC)->setTimer();
                 (*itC)->getBuffer()->fillBuffer(buf, ret);
                 bzero(&buf, ret);
-                std::cout << "Client_" << (*itC)->getDescriptor() << ": " << (*itC)->getBuffer()->getBuffer() << "\n";
+                //std::cout << "Client_" << (*itC)->getDescriptor() << ": " << (*itC)->getBuffer()->getBuffer() << "\n";
                 if ((*itC)->getBuffer()->isFull())
                     (*itC)->handleRequest(HOSTNAME);
                 itC++;
@@ -150,4 +161,8 @@ void Server::cleaner() {
         delete (*it);
         it = allclients.erase(it);
     }
+}
+
+std::map<std::string, Channel *> *Server::getChannelsList(){
+    return (&allchannels);
 }
