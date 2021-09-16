@@ -24,11 +24,18 @@ Client::Client(int &port, std::map<std::string, Client *> &users, Server *_serve
     struct in_addr ipAddr = addr.sin_addr;
     inet_ntop(AF_INET, &ipAddr, ip_address_str, INET_ADDRSTRLEN );
     chainCounter = 0;
+    targetToChannel = false;
     std::cout << "Client_" << descriptor << " connected\n";
 }
     
 Client::~Client() {
     std::cout << "Client_" << descriptor << " has disconnected\n";
+    std::vector<Channel *>::iterator it = mychannels.begin();
+    while (it != mychannels.end()){
+        (*it)->removeUser(nickname);
+        it++;
+    }
+    mychannels.clear();
     close(descriptor);
     delete buffer;
     buffer = NULL;
@@ -104,11 +111,19 @@ void Client::handleRequest(std::string const &str) {
                 code = 323;
         } else if (buffer->isJoin()) {
             if (!joinChannel()) {
-                resetBuffer();
+                buffer->clear();
                 return ;
             }
-        } else {
-            resetBuffer();
+        } else if (buffer->isMsg()) {
+            std::cout << "MSG\n";
+            if (!handleMessage()) {
+                buffer->clear();
+                std::cout << "BAD\n";
+                return ;
+            }
+        }
+        else {
+            buffer->clear();
             return ;
         }
     }
@@ -118,7 +133,8 @@ void Client::handleRequest(std::string const &str) {
 
 
 void Client::formResponse(std::string const &str) {
-    if (code == 330) {
+    if (code == 330 || targetToChannel) {
+        //if (code == 330)
         buffer->fillMessage(":" + identifier + " " + buffer->getBuffer());
         std::map<std::string, Client *>::iterator it = (*channel).second->getUsers()->begin();
         while (it != (*channel).second->getUsers()->end()) {
@@ -126,6 +142,7 @@ void Client::formResponse(std::string const &str) {
             (*it).second->outerRefillBuffer(buffer->getMessage());
             it++;
         }
+        targetToChannel = false;
     } else if (reservedStatus == Null){
         resetBuffer();
         buffer->fillBuffer(str);
@@ -158,6 +175,21 @@ void Client::formResponse(std::string const &str) {
         }
         case 332: {
             buffer->fillBuffer(" 332 " + nickname + " " + (*channel).first + " :" + (*channel).second->getTopic() + "\n\r\n");
+            break ;
+        }
+        case 353: {
+            buffer->fillBuffer(" 353 " + nickname + " = " + (*channel).first + " :");
+            std::map<std::string, Client *>::iterator it = (*channel).second->getUsers()->begin();
+            while (it != (*channel).second->getUsers()->end()) {
+                //std::cout << "Check user: " << (*it).first << "\n";
+                buffer->fillBuffer((*it).second->getNick() + " ");
+                it++;
+            }
+            buffer->fillBuffer("\n\r\n");
+            break ;
+        }
+        case 366: {
+            buffer->fillBuffer(" 366 " + nickname + " " + (*channel).first + " :End of NAMES list\n\r\n");
             break ;
         }
         case 431: {
@@ -199,18 +231,15 @@ void Client::sendResponse()
                 code = 331;
             else
                 code = 332;
-        } else {
-            //std::cout << "Status: request | nick = " << nickname << " | user = " << username << " | realname = " << realname << "\n";
+        } else if (code == 331 || code == 332) {
+            status = waitForResponseChain;
+            code = 353;
+        } else if (code == 353) {
+            status = waitForResponseChain;
+            code = 366;
+        } else
             status = waitForRequest;
-            
-            /*if (code == 1) {
-                channel = server->getChannelsList()->find("#general");
-                if (channel != server->getChannelsList()->end()) {
-                    channel->second->addUser(this);
-                    std::cout << nickname << " HAS BEEN ADDED TO CHANNEL " << channel->second->getName() << "\n";
-                }
-            }*/
-        }
+
         if (reservedStatus == Null) {
             resetBuffer();
             //std::cout << "Response: buffer reset\n";
@@ -278,16 +307,21 @@ void Client::bufferNick() {
 }
 
 bool Client::joinChannel() {
-    std::cout << "Joining channel\n";
     size_t pos1 = 5;
     size_t pos2 = buffer->getBuffer().find("\r\n", pos1);
     if (pos2 == std::string::npos)
         return (false);
-    std::string channelName = buffer->getBuffer().substr(pos1, pos2 - pos1);
+    std::string channelName;
+    size_t pos3 = buffer->getBuffer().find(":", pos1);
+    if (pos3 != std::string::npos && pos3 < pos2) //server part inside request
+        channelName = buffer->getBuffer().substr(pos1, pos3 - pos1);
+    else
+        channelName = buffer->getBuffer().substr(pos1, pos2 - pos1);
     channel = server->getChannelsList()->find(channelName);
     if (channel != server->getChannelsList()->end())
     {
         (*channel).second->addUser(this);
+        mychannels.push_back((*channel).second);
         code = 330;
         return (true);
     }
@@ -319,4 +353,36 @@ void Client::handleReserved() {
         reservedStatus = Null;
     responsePos = 0;
     responseSize = buffer->bufferSize();
+}
+
+bool Client::handleMessage() {
+    std::cout << "Message handling\n";
+    size_t pos1 = 8;
+    size_t pos2 = buffer->getBuffer().find(" ", pos1);
+    if (pos2 == std::string::npos)
+        return (false);
+    std::string target;
+    size_t pos3 = buffer->getBuffer().find(":", pos1);
+    if (pos3 != std::string::npos && pos3 < pos2) //server part inside request
+        target = buffer->getBuffer().substr(pos1, pos3 - pos1);
+    else
+        target = buffer->getBuffer().substr(pos1, pos2 - pos1);
+    if (target[0] == '#') {
+        channel = server->getChannelsList()->find(target);
+        if (channel != server->getChannelsList()->end())
+            targetToChannel = true;
+        else
+            return (false);
+    } else
+        return (false); //Private chat with user here
+    pos2++;
+    pos1 = buffer->getBuffer().find("\r\n", pos2);
+    if (pos1 == std::string::npos) {
+        targetToChannel = false;
+        return (false);
+    }
+    pos1+=2;
+    //buffer->fillMessage(":" + identifier + " " + buffer->getBuffer().substr(pos2, pos1 - pos2));
+    code = 0;
+    return (true);
 }

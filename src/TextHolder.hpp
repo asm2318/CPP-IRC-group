@@ -20,15 +20,16 @@ public:
     bool isFull();
     bool endsWith(std::string const &ending);
     size_t bufferSize();
-    //size_t bufferOutSize();
     bool isQuit();
     bool isList();
     bool isJoin();
+    bool isMsg();
     void refillBuffer(std::string const &str);
     bool reserveIsEmpty();
     void handleReserved();
     void fillMessage(std::string const &str);
     std::string const &getMessage();
+    void clear();
 };
 #endif
 

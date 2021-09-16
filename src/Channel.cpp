@@ -10,6 +10,7 @@ Channel::~Channel(){
 
 void Channel::addUser(Client *client) {
     users.insert(std::make_pair(client->getNick(), client));
+    std::cout << "\033[1;33mClient_" << client->getDescriptor() << " | " << client->getNick() << " has joined to channel " << name << "\033[0m\n";
 }
 
 std::string const &Channel::getName() {
@@ -32,4 +33,8 @@ std::string const &Channel::getTopic() {
 
 std::map<std::string, Client *> *Channel::getUsers() {
     return (&users);
+}
+
+void Channel::removeUser(std::string const &nick) {
+    users.erase(nick);
 }

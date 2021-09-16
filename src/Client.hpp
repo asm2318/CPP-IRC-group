@@ -15,6 +15,7 @@
 #include <iostream>
 #include <map>
 #include <sstream>
+#include <vector>
 
 #include "TextHolder.hpp"
 class Server;
@@ -61,6 +62,9 @@ private:
     size_t chainCounter;
     std::map<std::string, Channel *>::iterator channel;
     Status reservedStatus;
+    bool targetToChannel;
+    
+    std::vector<Channel *> mychannels;
 
 public:
     Client(int &port, std::map<std::string, Client *> &users, Server *_server);
@@ -82,6 +86,7 @@ public:
     void setStatus(Status st);
     void outerRefillBuffer(std::string const & str);
     void handleReserved();
+    bool handleMessage();
 };
 
 #include "Server.hpp"

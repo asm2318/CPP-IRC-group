@@ -50,10 +50,6 @@ size_t TextHolder::bufferSize() {
     return (buffer.size());
 }
 
-/*size_t TextHolder::bufferOutSize() {
-    return (bufferOut.size());
-}*/
-
 bool TextHolder::isQuit() {
     if (!buffer.compare(0, 6, "QUIT :"))
         return (true);
@@ -68,6 +64,12 @@ bool TextHolder::isList() {
 
 bool TextHolder::isJoin() {
     if (!buffer.compare(0, 5, "JOIN "))
+        return (true);
+    return (false);
+}
+
+bool TextHolder::isMsg() {
+    if (!buffer.compare(0, 8, "PRIVMSG "))
         return (true);
     return (false);
 }
@@ -99,4 +101,8 @@ void TextHolder::fillMessage(std::string const &str) {
 
 std::string const &TextHolder::getMessage() {
     return (message);
+}
+
+void TextHolder::clear() {
+    buffer.clear();
 }

@@ -20,6 +20,7 @@ public:
     std::string const getUsersNumberStr();
     std::string const &getTopic();
     std::map<std::string, Client *> *getUsers();
+    void removeUser(std::string const &nick);
 };
 
 #endif
