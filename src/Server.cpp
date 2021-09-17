@@ -31,7 +31,7 @@ Server::Server(int port): _port(port) {
     ip_address_str = std::string(ip_addr_str);*/
     
     
-    allusers["jnoma"] = NULL;
+    //allusers["jnoma"] = NULL;
     allchannels["#general"] = new Channel("#general");
     allchannels["#admin"] = new Channel("#admin");
 }
@@ -58,7 +58,7 @@ void Server::refillSets() {
     gettimeofday(&curTime, 0);
     std::vector<Client *>::iterator itC = allclients.begin();
     while (itC != allclients.end()) {
-        if ((*itC)->getStatus() == Error || (*itC)->getStatus() == Quit || curTime.tv_sec - (*itC)->getTimer().tv_sec >= TIMEOUT) {
+        if ((*itC)->getStatus() == Error || (*itC)->getStatus() == Quit) {//} || curTime.tv_sec - (*itC)->getTimer().tv_sec >= TIMEOUT) {
             if ((*itC)->isInMap())
                 allusers.erase((*itC)->getNick());
             delete (*itC);
@@ -69,6 +69,7 @@ void Server::refillSets() {
             FD_SET((*itC)->getDescriptor(), &read_current);
         else if ((*itC)->getStatus() == waitForResponse || (*itC)->getStatus() == waitForResponseChain)
             FD_SET((*itC)->getDescriptor(), &write_current);
+            
         itC++;
     }
 }
@@ -141,6 +142,7 @@ void Server::readRequests() {
 }
 
 void Server::sendResponses() {
+    //std::cout << "SEND RESPONSES BLOCK\n";
     int ret;
     int descr;
     std::vector<Client *>::iterator itC = allclients.begin();

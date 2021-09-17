@@ -74,6 +74,18 @@ bool TextHolder::isMsg() {
     return (false);
 }
 
+bool TextHolder::isNames() {
+    if (!buffer.compare(0, 6, "NAMES "))
+        return (true);
+    return (false);
+}
+
+bool TextHolder::isPart() {
+    if (!buffer.compare(0, 5, "PART "))
+        return (true);
+    return (false);
+}
+
 void TextHolder::refillBuffer(std::string const &str) {
     buffer = str + " " + buffer;
 }
@@ -84,12 +96,12 @@ bool TextHolder::reserveIsEmpty() {
 
 void TextHolder::handleReserved() {
     buffer.clear();
-    size_t pos = bufferReserved.find("\r\n");
+    size_t pos = bufferReserved.find("\n\r\n\n");
     if (pos == std::string::npos) {
         bufferReserved.clear();
         return ;
     }
-    pos += 2;
+    pos += 4;
     fillBuffer(bufferReserved.substr(0, pos));
     bufferReserved.erase(0, pos);
 }
@@ -105,4 +117,8 @@ std::string const &TextHolder::getMessage() {
 
 void TextHolder::clear() {
     buffer.clear();
+}
+
+bool TextHolder::empty() {
+    return (buffer.empty());
 }

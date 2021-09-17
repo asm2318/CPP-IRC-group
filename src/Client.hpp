@@ -83,10 +83,14 @@ public:
     bool fillUserData();
     void bufferNick();
     bool joinChannel();
+    bool leaveChannel();
+    void leaveAllChannels();
     void setStatus(Status st);
     void outerRefillBuffer(std::string const & str);
     void handleReserved();
     bool handleMessage();
+    std::string &getID();
+    bool readyForReserve();
 };
 
 #include "Server.hpp"

@@ -30,12 +30,12 @@ Client::Client(int &port, std::map<std::string, Client *> &users, Server *_serve
     
 Client::~Client() {
     std::cout << "Client_" << descriptor << " has disconnected\n";
-    std::vector<Channel *>::iterator it = mychannels.begin();
+    /*std::vector<Channel *>::iterator it = mychannels.begin();
     while (it != mychannels.end()){
         (*it)->removeUser(nickname);
         it++;
-    }
-    mychannels.clear();
+    }*/
+    leaveAllChannels();
     close(descriptor);
     delete buffer;
     buffer = NULL;
@@ -71,6 +71,9 @@ void Client::handleRequest(std::string const &str) {
     std::cout << "\n\033[1;31mClient_" << descriptor << " | " << nickname << " | RECEIVED: <\033[0m" << buffer->getBuffer() << "\033[1;31m>END\033[0m\n";
     if (buffer->isQuit()) {
         status = Quit;
+        //std::cout << "Status set to Prequit\n";
+        //reservedStatus = Prequit;
+        leaveAllChannels();
         return ;
     }
     //std::cout << "Username.empty() = " << username.empty() << "\n";
@@ -115,14 +118,22 @@ void Client::handleRequest(std::string const &str) {
                 return ;
             }
         } else if (buffer->isMsg()) {
-            std::cout << "MSG\n";
+            //std::cout << "MSG\n";
             if (!handleMessage()) {
                 buffer->clear();
-                std::cout << "BAD\n";
+                //std::cout << "BAD\n";
                 return ;
             }
-        }
-        else {
+        } /*else if (buffer->isNames()) {
+            code = 353;
+            formResponse(str);
+        }*/
+        else if (buffer->isPart()) {
+            if (!leaveChannel()) {
+                buffer->clear();
+                return ;
+            }
+        } else {
             buffer->clear();
             return ;
         }
@@ -133,15 +144,20 @@ void Client::handleRequest(std::string const &str) {
 
 
 void Client::formResponse(std::string const &str) {
-    if (code == 330 || targetToChannel) {
+    if (code == 330 || targetToChannel || code == 333) {
         //if (code == 330)
-        buffer->fillMessage(":" + identifier + " " + buffer->getBuffer());
+        buffer->fillMessage(":" + identifier + " " + buffer->getBuffer().substr(0, buffer->bufferSize() - 2) + "\n\r\n\n");
         std::map<std::string, Client *>::iterator it = (*channel).second->getUsers()->begin();
         while (it != (*channel).second->getUsers()->end()) {
-            std::cout << "Check user: " << (*it).first << "\n";
-            (*it).second->outerRefillBuffer(buffer->getMessage());
+            //std::cout << "Check user: " << (*it).first << "\n";
+            if ((*it).second != this || code == 330)
+                (*it).second->outerRefillBuffer(buffer->getMessage());
+            else
+                code = 0;
             it++;
         }
+        if (code == 333)
+            outerRefillBuffer(buffer->getMessage());
         targetToChannel = false;
     } else if (reservedStatus == Null){
         resetBuffer();
@@ -152,7 +168,7 @@ void Client::formResponse(std::string const &str) {
             //std::cout << "USERNAME: " << username << "\n";
             if (!username.empty()) {
                 identifier = nickname + "!" + username + "@" + ip_address_str;
-                buffer->fillBuffer(" 001 " + nickname + " :Welcome to the Internet Relay Network " + identifier + "\n\r\n");
+                buffer->fillBuffer(" 001 " + nickname + " :Welcome to the Internet Relay Network " + identifier + "\n\r\n\n");
             } else {
                 resetBuffer();
                 status = waitForRequest;
@@ -162,19 +178,19 @@ void Client::formResponse(std::string const &str) {
         }
         case 322: {
             
-            buffer->fillBuffer(" 322 " + nickname + " " + (*channel).first + " " + (*channel).second->getUsersNumberStr() + " :" + (*channel).second->getTopic() + "\n\r\n");
+            buffer->fillBuffer(" 322 " + nickname + " " + (*channel).first + " " + (*channel).second->getUsersNumberStr() + " :" + (*channel).second->getTopic() + "\n\r\n\n");
             break ;
         }
         case 323: {
-            buffer->fillBuffer(" 323 " + nickname + "\n\r\n");
+            buffer->fillBuffer(" 323 " + nickname + "\n\r\n\n");
             break ;
         }
         case 331: {
-            buffer->fillBuffer(" 331 " + nickname + " " + (*channel).first + " :No topic is set\n\r\n");
+            buffer->fillBuffer(" 331 " + nickname + " " + (*channel).first + " :No topic is set\n\r\n\n");
             break ;
         }
         case 332: {
-            buffer->fillBuffer(" 332 " + nickname + " " + (*channel).first + " :" + (*channel).second->getTopic() + "\n\r\n");
+            buffer->fillBuffer(" 332 " + nickname + " " + (*channel).first + " :" + (*channel).second->getTopic() + "\n\r\n\n");
             break ;
         }
         case 353: {
@@ -185,19 +201,19 @@ void Client::formResponse(std::string const &str) {
                 buffer->fillBuffer((*it).second->getNick() + " ");
                 it++;
             }
-            buffer->fillBuffer("\n\r\n");
+            buffer->fillBuffer("\n\r\n\n");
             break ;
         }
         case 366: {
-            buffer->fillBuffer(" 366 " + nickname + " " + (*channel).first + " :End of NAMES list\n\r\n");
+            buffer->fillBuffer(" 366 " + nickname + " " + (*channel).first + " :End of NAMES list\n\r\n\n");
             break ;
         }
         case 431: {
-            buffer->fillBuffer(" 431 * :No nickname given\n\r\n");
+            buffer->fillBuffer(" 431 * :No nickname given\n\r\n\n");
             break ;
         }
         case 433: {
-            buffer->fillBuffer(" 433 * " + nickname + " :Nickname is already in use\n\r\n");
+            buffer->fillBuffer(" 433 * " + nickname + " :Nickname is already in use\n\r\n\n");
             break ;
         }
     }
@@ -208,6 +224,17 @@ void Client::formResponse(std::string const &str) {
 
 void Client::sendResponse()
 {
+    //std::cout << nickname << ": sending response\n";
+    if (buffer->empty())
+    {
+        status = waitForRequest;
+        if (reservedStatus == Null)
+            resetBuffer();
+        else
+            handleReserved();
+        return ;
+    }
+    
     std::cout << "\n\033[1;32mCODE: " << code << " | RESPONSE TO " << nickname << " IS: <\033[0m" << buffer->getBuffer() << "\033[1;32m>END\033[0m\n";
     int send_size = send(descriptor, buffer->getBuffer().substr(responsePos, responseSize - responsePos - 1).c_str(), responseSize - responsePos - 1, 0);
     if (send_size <= 0) {
@@ -240,14 +267,10 @@ void Client::sendResponse()
         } else
             status = waitForRequest;
 
-        if (reservedStatus == Null) {
+        if (reservedStatus == Null)
             resetBuffer();
-            //std::cout << "Response: buffer reset\n";
-        }
-        else {
+        else
             handleReserved();
-            //std::cout << "Response: handle reserved\n";
-        }
     }
 }
 
@@ -328,35 +351,88 @@ bool Client::joinChannel() {
     return (false);
 }
 
+bool Client::leaveChannel() {
+    size_t pos1 = 5;
+    size_t pos2 = buffer->getBuffer().find(" :", pos1);
+    if (pos2 == std::string::npos && (pos2 = buffer->getBuffer().find("\r\n", pos1)) == std::string::npos)
+        return (false);
+    std::string channelName;
+    size_t pos3 = buffer->getBuffer().find(":", pos1);
+    if (pos3 != std::string::npos && pos3 < pos2) //server part inside request
+        channelName = buffer->getBuffer().substr(pos1, pos3 - pos1);
+    else
+        channelName = buffer->getBuffer().substr(pos1, pos2 - pos1);
+    channel = server->getChannelsList()->find(channelName);
+    if (channel != server->getChannelsList()->end())
+    {
+        (*channel).second->removeUser(nickname);
+        std::vector<Channel *>::iterator it = mychannels.begin();
+        while (it != mychannels.end()) {
+            if (*it == (*channel).second) {
+                mychannels.erase(it);
+                //targetToChannel = true;
+                code = 333;
+                std::cout << "Code set to " << code << "\n";
+                return (true);
+            }
+            it++;
+        }
+    }
+    return (false);
+}
+
+void Client::leaveAllChannels() {
+    //std::cout << "Leaving all channels\n";
+    std::vector<Channel *>::iterator it1 = mychannels.begin();
+    while (it1 != mychannels.end())
+    {
+        (*it1)->removeUser(nickname);
+        std::string quitMessage = ":" + identifier + " PART " + (*it1)->getName() + " :user disconnected from server\n\r\n\n";
+        std::map<std::string, Client *>::iterator it2 = (*channel).second->getUsers()->begin();
+        while (it2 != (*channel).second->getUsers()->end()) {
+            (*it2).second->outerRefillBuffer(quitMessage);
+            it2++;
+        }
+        it1++;
+    }
+    mychannels.clear();
+}
+
 void Client::setStatus(Status st) {
     status = st;
 }
 
 void Client::outerRefillBuffer(std::string const &str) {
-    if (!buffer->getBuffer().empty()) {
+    if (!buffer->empty()) {
+        //std::cout << nickname << " - reserved status set\n";
         reservedStatus = waitForResponse;
         buffer->fillBufferReserved(str);
     } else {
+        //std::cout << nickname << " - status set\n";
         status = waitForResponse;
         buffer->fillBuffer(str);
         responsePos = 0;
         responseSize = buffer->bufferSize();
     }
+    //std::cout << nickname << " status is " << status << "\n";
+    //std::cout << nickname << " - buffer: " << buffer->getBuffer();
 }
 
 void Client::handleReserved() {
     if (reservedStatus == Null)
         return ;
     std::swap(status, reservedStatus);
+    if (status == Quit)
+        return ;
     buffer->handleReserved();
-    if (reservedStatus == waitForRequest && buffer->reserveIsEmpty())
+    if (buffer->reserveIsEmpty()) // reservedStatus == waitForRequest &&
         reservedStatus = Null;
     responsePos = 0;
     responseSize = buffer->bufferSize();
 }
 
 bool Client::handleMessage() {
-    std::cout << "Message handling\n";
+    //std::cout << "Message handling\n";
     size_t pos1 = 8;
     size_t pos2 = buffer->getBuffer().find(" ", pos1);
     if (pos2 == std::string::npos)
@@ -385,4 +461,15 @@ bool Client::handleMessage() {
     //buffer->fillMessage(":" + identifier + " " + buffer->getBuffer().substr(pos2, pos1 - pos2));
     code = 0;
     return (true);
+}
+
+std::string &Client::getID()
+{
+    return (identifier);
+}
+
+bool Client::readyForReserve() {
+    //bool check = (status == waitForRequest);
+    //std::cout << nickname << ": Reserve empty = " << buffer->reserveIsEmpty() << " | buffer empty = " << buffer->empty() << " | waitForRequest = " << check << "\n";
+    return (!buffer->reserveIsEmpty());// && buffer->empty() && status == waitForRequest);
 }

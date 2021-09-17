@@ -24,12 +24,15 @@ public:
     bool isList();
     bool isJoin();
     bool isMsg();
+    bool isNames();
+    bool isPart();
     void refillBuffer(std::string const &str);
     bool reserveIsEmpty();
     void handleReserved();
     void fillMessage(std::string const &str);
     std::string const &getMessage();
     void clear();
+    bool empty();
 };
 #endif
 
