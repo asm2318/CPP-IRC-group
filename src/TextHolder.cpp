@@ -122,3 +122,7 @@ void TextHolder::clear() {
 bool TextHolder::empty() {
     return (buffer.empty());
 }
+
+void TextHolder::insert(size_t pos, char c) {
+    buffer.insert(pos, &c, 1);
+}

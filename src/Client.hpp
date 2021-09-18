@@ -65,6 +65,7 @@ private:
     bool targetToChannel;
     
     std::vector<Channel *> mychannels;
+    Client *privateChat;
 
 public:
     Client(int &port, std::map<std::string, Client *> &users, Server *_server);

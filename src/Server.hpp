@@ -43,6 +43,7 @@ public:
     void sendResponses();
     void cleaner();
     std::map<std::string, Channel *> *getChannelsList();
+    Client *findUser(std::string const &nick);
 };
 
 #endif

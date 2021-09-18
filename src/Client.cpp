@@ -25,6 +25,7 @@ Client::Client(int &port, std::map<std::string, Client *> &users, Server *_serve
     inet_ntop(AF_INET, &ipAddr, ip_address_str, INET_ADDRSTRLEN );
     chainCounter = 0;
     targetToChannel = false;
+    privateChat = NULL;
     std::cout << "Client_" << descriptor << " connected\n";
 }
     
@@ -39,6 +40,7 @@ Client::~Client() {
     close(descriptor);
     delete buffer;
     buffer = NULL;
+    privateChat = NULL;
 }
 
 void Client::setTimer() {
@@ -159,6 +161,10 @@ void Client::formResponse(std::string const &str) {
         if (code == 333)
             outerRefillBuffer(buffer->getMessage());
         targetToChannel = false;
+    } else if (privateChat != NULL) {
+        privateChat->outerRefillBuffer(":" + identifier + " " + buffer->getBuffer().substr(0, buffer->bufferSize() - 2) + "\n\r\n\n");
+        privateChat = NULL;
+        buffer->clear();
     } else if (reservedStatus == Null){
         resetBuffer();
         buffer->fillBuffer(str);
@@ -449,8 +455,11 @@ bool Client::handleMessage() {
             targetToChannel = true;
         else
             return (false);
-    } else
-        return (false); //Private chat with user here
+    } else {
+        privateChat = server->findUser(target);
+        if (privateChat == NULL)
+            return (false); //Private chat with user here
+    }
     pos2++;
     pos1 = buffer->getBuffer().find("\r\n", pos2);
     if (pos1 == std::string::npos) {
@@ -460,6 +469,8 @@ bool Client::handleMessage() {
     pos1+=2;
     //buffer->fillMessage(":" + identifier + " " + buffer->getBuffer().substr(pos2, pos1 - pos2));
     code = 0;
+    if (buffer->getBuffer()[pos2] != ':')
+        buffer->insert(pos2, ':');
     return (true);
 }
 

@@ -33,6 +33,7 @@ public:
     std::string const &getMessage();
     void clear();
     bool empty();
+    void insert(size_t pos, char c);
 };
 #endif
 

@@ -168,3 +168,10 @@ void Server::cleaner() {
 std::map<std::string, Channel *> *Server::getChannelsList(){
     return (&allchannels);
 }
+
+Client *Server::findUser(std::string const &nick) {
+    std::map<std::string, Client *>::iterator it = allusers.find(nick);
+    if (it == allusers.end())
+        return (NULL);
+    return ((*it).second);
+}
