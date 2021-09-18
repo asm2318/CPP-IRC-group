@@ -6,6 +6,7 @@ Channel::Channel(std::string const &_name): name(_name){
 
 Channel::~Channel(){
     users.clear();
+    operators.clear();
 }
 
 void Channel::addUser(Client *client) {
@@ -37,4 +38,18 @@ std::map<std::string, Client *> *Channel::getUsers() {
 
 void Channel::removeUser(std::string const &nick) {
     users.erase(nick);
+}
+
+bool Channel::empty() {
+    return (users.empty());
+}
+
+bool Channel::isOperator(Client *client) {
+    std::vector<Client *>::iterator it = operators.begin();
+    while (it != operators.end()) {
+        if (*it == client)
+            return (true);
+        it++;
+    }
+    return (false);
 }

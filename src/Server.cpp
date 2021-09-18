@@ -32,8 +32,8 @@ Server::Server(int port): _port(port) {
     
     
     //allusers["jnoma"] = NULL;
-    allchannels["#general"] = new Channel("#general");
-    allchannels["#admin"] = new Channel("#admin");
+    //allchannels["#general"] = new Channel("#general");
+    //allchannels["#admin"] = new Channel("#admin");
 }
 
 Server::~Server() {
@@ -50,7 +50,7 @@ Server::~Server() {
 }
 
 void Server::refillSets() {
-    //std::cout << "SET REFILL\n";
+    //std::cout << "\n\033[1;34mSET REFILL\033[0m\n";
     FD_ZERO(&read_current);
     FD_ZERO(&write_current);
     FD_SET(descriptor, &read_current);
@@ -71,6 +71,14 @@ void Server::refillSets() {
             FD_SET((*itC)->getDescriptor(), &write_current);
             
         itC++;
+    }
+    std::map<std::string, Channel *>::iterator curChannel = allchannels.begin();
+    while (curChannel != allchannels.end()) {
+        if ((*curChannel).second->empty()) {
+            delete (*curChannel).second;
+            curChannel = allchannels.erase(curChannel);
+        } else
+            curChannel++;
     }
 }
 
@@ -99,7 +107,7 @@ size_t Server::clientsCount() {
 }
 
 void Server::handleConnections() {
-    //std::cout << "Handle connection\n";
+    //std::cout << "\033[1;34mHandle connection\033[0m\n";
     if (FD_ISSET(descriptor, &read_current)) {
         try{
             Client *client_sock = new Client(descriptor, allusers, this);
@@ -111,7 +119,7 @@ void Server::handleConnections() {
 }
 
 void Server::readRequests() {
-    //std::cout << "READ REQUESTS BLOCK\n";
+    //std::cout << "\033[1;34mREAD REQUESTS BLOCK\033[0m\n";
     int ret;
     int descr;
     std::vector<Client *>::iterator itC = allclients.begin();
@@ -142,7 +150,7 @@ void Server::readRequests() {
 }
 
 void Server::sendResponses() {
-    //std::cout << "SEND RESPONSES BLOCK\n";
+    //std::cout << "\033[1;34mSEND RESPONSES BLOCK\033[0m\n";
     int ret;
     int descr;
     std::vector<Client *>::iterator itC = allclients.begin();
@@ -174,4 +182,11 @@ Client *Server::findUser(std::string const &nick) {
     if (it == allusers.end())
         return (NULL);
     return ((*it).second);
+}
+
+bool Server::createChannel(std::string const &name, Client *client) {
+    allchannels[name] = new Channel(name);
+    allchannels[name]->addUser(client);
+    client->addChannel(allchannels[name]);
+    return (true);
 }

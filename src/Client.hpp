@@ -11,6 +11,7 @@
 #endif
 
 #include <algorithm>
+//#include <cctype>
 #include <cstdio>
 #include <iostream>
 #include <map>
@@ -92,6 +93,8 @@ public:
     bool handleMessage();
     std::string &getID();
     bool readyForReserve();
+    void addChannel(Channel *c);
+    bool nickIsAcceptable();
 };
 
 #include "Server.hpp"

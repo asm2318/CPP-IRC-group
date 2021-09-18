@@ -97,14 +97,17 @@ void Client::handleRequest(std::string const &str) {
     if (status == waitForNick) {
         nickname.clear();
         bufferNick();
-        if (nickname.empty())
+        /*if (nickname.empty())
             code = 431;
-        else if (allusers->count(nickname))
-            code = 433;
-        else {
-            allusers->insert(std::make_pair(nickname, this));
-            isAuthorized = true;
-            code = 1;
+        else */
+        if (nickIsAcceptable()) {
+            if (allusers->count(nickname))
+                code = 433;
+            else {
+                allusers->insert(std::make_pair(nickname, this));
+                isAuthorized = true;
+                code = 1;
+            }
         }
     } else if (status == waitForRequest) {
         if (buffer->isList()) {
@@ -147,7 +150,6 @@ void Client::handleRequest(std::string const &str) {
 
 void Client::formResponse(std::string const &str) {
     if (code == 330 || targetToChannel || code == 333) {
-        //if (code == 330)
         buffer->fillMessage(":" + identifier + " " + buffer->getBuffer().substr(0, buffer->bufferSize() - 2) + "\n\r\n\n");
         std::map<std::string, Client *>::iterator it = (*channel).second->getUsers()->begin();
         while (it != (*channel).second->getUsers()->end()) {
@@ -218,6 +220,10 @@ void Client::formResponse(std::string const &str) {
             buffer->fillBuffer(" 431 * :No nickname given\n\r\n\n");
             break ;
         }
+        case 432: {
+            buffer->fillBuffer(" 432 * " + nickname + " :Erroneous nickname\n\r\n\n");
+            break ;
+        }
         case 433: {
             buffer->fillBuffer(" 433 * " + nickname + " :Nickname is already in use\n\r\n\n");
             break ;
@@ -272,7 +278,7 @@ void Client::sendResponse()
             code = 366;
         } else
             status = waitForRequest;
-
+        
         if (reservedStatus == Null)
             resetBuffer();
         else
@@ -351,10 +357,15 @@ bool Client::joinChannel() {
     {
         (*channel).second->addUser(this);
         mychannels.push_back((*channel).second);
-        code = 330;
-        return (true);
+        //code = 330;
+        //return (true);
+    } else {
+        server->createChannel(channelName, this);
+        channel = server->getChannelsList()->find(channelName);
     }
-    return (false);
+    code = 330;
+    return (true);
+    //return (false);
 }
 
 bool Client::leaveChannel() {
@@ -378,7 +389,7 @@ bool Client::leaveChannel() {
                 mychannels.erase(it);
                 //targetToChannel = true;
                 code = 333;
-                std::cout << "Code set to " << code << "\n";
+                //std::cout << "Code set to " << code << "\n";
                 return (true);
             }
             it++;
@@ -457,8 +468,13 @@ bool Client::handleMessage() {
             return (false);
     } else {
         privateChat = server->findUser(target);
-        if (privateChat == NULL)
-            return (false); //Private chat with user here
+        if (privateChat == NULL) {
+            //return (false); //Private chat with user here
+            privateChat = this;
+            buffer->clear();
+            buffer->fillBuffer("PRIVMSG " + target + " :No such user - " + target + "\r\n");
+            pos2 = buffer->getBuffer().find(" :");
+        }
     }
     pos2++;
     pos1 = buffer->getBuffer().find("\r\n", pos2);
@@ -483,4 +499,25 @@ bool Client::readyForReserve() {
     //bool check = (status == waitForRequest);
     //std::cout << nickname << ": Reserve empty = " << buffer->reserveIsEmpty() << " | buffer empty = " << buffer->empty() << " | waitForRequest = " << check << "\n";
     return (!buffer->reserveIsEmpty());// && buffer->empty() && status == waitForRequest);
+}
+
+void Client::addChannel(Channel *c) {
+    mychannels.push_back(c);
+}
+
+bool Client::nickIsAcceptable() {
+    size_t length = nickname.size();
+    if (!length) {
+        code = 431;
+        return (false);
+    }
+    char c;
+    for (size_t i = 0; i < length; i++) {
+        c = nickname[i];
+        if (!((c >= 34 && c <= 36) || (c >= 38 && c <= 41) || (c >= 43 && c <= 57) || (c >= 60 && c <= 63) || (c >= 65 && c <= 125))) {
+            code = 432;
+            return (false);
+        }
+    }
+    return (true);
 }

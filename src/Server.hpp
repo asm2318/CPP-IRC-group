@@ -44,6 +44,7 @@ public:
     void cleaner();
     std::map<std::string, Channel *> *getChannelsList();
     Client *findUser(std::string const &nick);
+    bool createChannel(std::string const &name, Client *client);
 };
 
 #endif

@@ -10,6 +10,7 @@ private:
     std::map<std::string, Client *> users;
     std::string password;
     std::string topic;
+    std::vector<Client *> operators;
     
 public:
     Channel(std::string const &_name);
@@ -21,6 +22,8 @@ public:
     std::string const &getTopic();
     std::map<std::string, Client *> *getUsers();
     void removeUser(std::string const &nick);
+    bool empty();
+    bool isOperator(Client *client);
 };
 
 #endif
