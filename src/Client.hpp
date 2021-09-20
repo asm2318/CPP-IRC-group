@@ -95,6 +95,7 @@ public:
     bool readyForReserve();
     void addChannel(Channel *c);
     bool nickIsAcceptable();
+    bool updateTopic();
 };
 
 #include "Server.hpp"

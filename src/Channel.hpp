@@ -12,6 +12,7 @@ private:
     std::string topic;
     std::vector<Client *> operators;
     
+    
 public:
     Channel(std::string const &_name);
     ~Channel();
@@ -24,6 +25,9 @@ public:
     void removeUser(std::string const &nick);
     bool empty();
     bool isOperator(Client *client);
+    void addOperator(Client *client);
+    void setTopic(std::string const &str);
+    void setPassword(std::string const &str);
 };
 
 #endif

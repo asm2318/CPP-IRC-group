@@ -2,6 +2,7 @@
 
 Channel::Channel(std::string const &_name): name(_name){
     topic = "";
+    password = "";
 }
 
 Channel::~Channel(){
@@ -52,4 +53,18 @@ bool Channel::isOperator(Client *client) {
         it++;
     }
     return (false);
+}
+
+void Channel::addOperator(Client *client) {
+    operators.push_back(client);
+}
+
+void Channel::setTopic(std::string const &str) {
+    topic.clear();
+    topic = str;
+}
+
+void Channel::setPassword(std::string const &str) {
+    password.clear();
+    password = str;
 }

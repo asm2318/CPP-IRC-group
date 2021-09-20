@@ -185,8 +185,10 @@ Client *Server::findUser(std::string const &nick) {
 }
 
 bool Server::createChannel(std::string const &name, Client *client) {
-    allchannels[name] = new Channel(name);
-    allchannels[name]->addUser(client);
-    client->addChannel(allchannels[name]);
+    Channel *newChannel = new Channel(name);
+    allchannels[name] = newChannel;
+    newChannel->addUser(client);
+    client->addChannel(newChannel);
+    newChannel->addOperator(client);
     return (true);
 }

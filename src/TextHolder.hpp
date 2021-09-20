@@ -26,6 +26,7 @@ public:
     bool isMsg();
     bool isNames();
     bool isPart();
+    bool isTopic();
     void refillBuffer(std::string const &str);
     bool reserveIsEmpty();
     void handleReserved();

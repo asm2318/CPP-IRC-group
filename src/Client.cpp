@@ -138,6 +138,11 @@ void Client::handleRequest(std::string const &str) {
                 buffer->clear();
                 return ;
             }
+        } else if (buffer->isTopic()) {
+            if (!updateTopic()) {
+                buffer->clear();
+                return ;
+            }
         } else {
             buffer->clear();
             return ;
@@ -206,6 +211,8 @@ void Client::formResponse(std::string const &str) {
             std::map<std::string, Client *>::iterator it = (*channel).second->getUsers()->begin();
             while (it != (*channel).second->getUsers()->end()) {
                 //std::cout << "Check user: " << (*it).first << "\n";
+                if ((*channel).second->isOperator((*it).second))
+                    buffer->fillBuffer("@");
                 buffer->fillBuffer((*it).second->getNick() + " ");
                 it++;
             }
@@ -346,26 +353,35 @@ bool Client::joinChannel() {
     size_t pos2 = buffer->getBuffer().find("\r\n", pos1);
     if (pos2 == std::string::npos)
         return (false);
-    std::string channelName;
-    size_t pos3 = buffer->getBuffer().find(":", pos1);
-    if (pos3 != std::string::npos && pos3 < pos2) //server part inside request
-        channelName = buffer->getBuffer().substr(pos1, pos3 - pos1);
-    else
-        channelName = buffer->getBuffer().substr(pos1, pos2 - pos1);
+    std::string channelName, topic, password;
+    size_t pos3 = buffer->getBuffer().find(" :", pos1);
+    if (pos3 != std::string::npos) { // && pos3 < pos2) //server part inside request
+        topic = buffer->getBuffer().substr(pos3 + 2, pos2 - pos3 - 2);
+        pos2 = pos3;
+    } else
+        topic = "";
+    size_t pos4 = buffer->getBuffer().find(" ", pos1);
+    if (pos4 != std::string::npos && pos4 != pos3) {
+        password = buffer->getBuffer().substr(pos4 + 1, pos2 - pos4 - 1);
+        pos2 = pos4;
+    } else
+        password = "";
+    
+        
+    channelName = buffer->getBuffer().substr(pos1, pos2 - pos1);
     channel = server->getChannelsList()->find(channelName);
     if (channel != server->getChannelsList()->end())
     {
         (*channel).second->addUser(this);
         mychannels.push_back((*channel).second);
-        //code = 330;
-        //return (true);
     } else {
         server->createChannel(channelName, this);
         channel = server->getChannelsList()->find(channelName);
+        (*channel).second->setPassword(password);
+        (*channel).second->setTopic(topic);
     }
     code = 330;
     return (true);
-    //return (false);
 }
 
 bool Client::leaveChannel() {
@@ -519,5 +535,21 @@ bool Client::nickIsAcceptable() {
             return (false);
         }
     }
+    return (true);
+}
+
+bool Client::updateTopic() {
+    size_t pos1 = 6;
+    size_t pos2 = buffer->getBuffer().find(" :", pos1);
+    if (pos2 == std::string::npos)
+        return (false);
+    std::string channelName = buffer->getBuffer().substr(pos1, pos2 - pos1);
+    std::map<std::string, Channel *>::iterator it = server->getChannelsList()->find(channelName);
+    if (it == server->getChannelsList()->end() || !(*it).second->isOperator(this))
+        return (false);
+    pos1 = buffer->getBuffer().find("\r\n", pos2);
+    if (pos1 == std::string::npos)
+        return (false);
+    (*it).second->setTopic(buffer->getBuffer().substr(pos2, pos1 - pos2));
     return (true);
 }

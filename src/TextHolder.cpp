@@ -86,6 +86,12 @@ bool TextHolder::isPart() {
     return (false);
 }
 
+bool TextHolder::isTopic() {
+    if (!buffer.compare(0, 6, "TOPIC "))
+        return (true);
+    return (false);
+}
+
 void TextHolder::refillBuffer(std::string const &str) {
     buffer = str + " " + buffer;
 }
