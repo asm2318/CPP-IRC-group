@@ -67,6 +67,7 @@ private:
     
     std::vector<Channel *> mychannels;
     Client *privateChat;
+    bool needNoChain;
 
 public:
     Client(int &port, std::map<std::string, Client *> &users, Server *_server);

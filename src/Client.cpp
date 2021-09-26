@@ -26,6 +26,7 @@ Client::Client(int &port, std::map<std::string, Client *> &users, Server *_serve
     chainCounter = 0;
     targetToChannel = false;
     privateChat = NULL;
+    needNoChain = false;
     std::cout << "Client_" << descriptor << " connected\n";
 }
     
@@ -155,11 +156,14 @@ void Client::handleRequest(std::string const &str) {
 
 void Client::formResponse(std::string const &str) {
     if (code == 330 || targetToChannel || code == 333) {
-        buffer->fillMessage(":" + identifier + " " + buffer->getBuffer().substr(0, buffer->bufferSize() - 2) + "\n\r\n\n");
+        //if (code != 334)
+            buffer->fillMessage(":" + identifier + " " + buffer->getBuffer().substr(0, buffer->bufferSize() - 2) + "\n\r\n\n");
+        /*else
+            buffer->fillMessage(":" + identifier + " " + buffer->getBuffer().substr(0, buffer->bufferSize() - 2) + " ; User " + nickname +" setting the topic.\n\r\n\n");*/
         std::map<std::string, Client *>::iterator it = (*channel).second->getUsers()->begin();
         while (it != (*channel).second->getUsers()->end()) {
             //std::cout << "Check user: " << (*it).first << "\n";
-            if ((*it).second != this || code == 330)
+            if ((*it).second != this || code == 330 || code == 334)
                 (*it).second->outerRefillBuffer(buffer->getMessage());
             else
                 code = 0;
@@ -277,14 +281,16 @@ void Client::sendResponse()
                 code = 331;
             else
                 code = 332;
-        } else if (code == 331 || code == 332) {
+        } else if ((code == 331 || code == 332) && !needNoChain) {
             status = waitForResponseChain;
             code = 353;
         } else if (code == 353) {
             status = waitForResponseChain;
             code = 366;
-        } else
+        } else {
             status = waitForRequest;
+            needNoChain = false;
+        }
         
         if (reservedStatus == Null)
             resetBuffer();
@@ -541,15 +547,36 @@ bool Client::nickIsAcceptable() {
 bool Client::updateTopic() {
     size_t pos1 = 6;
     size_t pos2 = buffer->getBuffer().find(" :", pos1);
-    if (pos2 == std::string::npos)
-        return (false);
+    bool needSetTopic = true;
+    if (pos2 == std::string::npos) {
+        //return (false);
+        needSetTopic = false;
+        pos2 = buffer->getBuffer().find("\r\n", pos1);
+        if (pos2 == std::string::npos)
+            return (false);
+    }
     std::string channelName = buffer->getBuffer().substr(pos1, pos2 - pos1);
-    std::map<std::string, Channel *>::iterator it = server->getChannelsList()->find(channelName);
-    if (it == server->getChannelsList()->end() || !(*it).second->isOperator(this))
+    //std::map<std::string, Channel *>::iterator it = server->getChannelsList()->find(channelName);
+    channel = server->getChannelsList()->find(channelName);
+    if (channel == server->getChannelsList()->end())
         return (false);
-    pos1 = buffer->getBuffer().find("\r\n", pos2);
-    if (pos1 == std::string::npos)
-        return (false);
-    (*it).second->setTopic(buffer->getBuffer().substr(pos2, pos1 - pos2));
+    if (needSetTopic) {
+        if (!(*channel).second->isOperator(this))
+            return (false);
+        pos1 = buffer->getBuffer().find("\r\n", pos2);
+        if (pos1 == std::string::npos)
+            return (false);
+        pos2 += 2;
+        (*channel).second->setTopic(buffer->getBuffer().substr(pos2, pos1 - pos2));
+        //std::cout << "TOPIC: " << (*channel).second->getTopic() << "\n";
+        code = 334;
+        targetToChannel = true;
+        return (true);
+    }
+    if ((*channel).second->getTopic().empty())
+        code = 331;
+    else
+        code = 332;
+    needNoChain = true;
     return (true);
 }
