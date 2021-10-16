@@ -45,18 +45,29 @@ bool Channel::empty() {
     return (users.empty());
 }
 
-bool Channel::isOperator(Client *client) {
-    std::vector<Client *>::iterator it = operators.begin();
+bool Channel::isOperator(std::string const &nick) {
+    std::vector<std::string>::iterator it = operators.begin();
     while (it != operators.end()) {
-        if (*it == client)
+        if (*it == nick)
             return (true);
         it++;
     }
     return (false);
 }
 
-void Channel::addOperator(Client *client) {
-    operators.push_back(client);
+void Channel::addOperator(std::string const &nick) {
+    operators.push_back(nick);
+}
+
+void Channel::removeOperator(std::string const &nick) {
+    std::vector<std::string>::iterator it = operators.begin();
+    while (it != operators.end()) {
+        if (*it == nick) {
+            operators.erase(it);
+            return ;
+        }
+        it++;
+    }
 }
 
 void Channel::setTopic(std::string const &str) {
@@ -67,4 +78,30 @@ void Channel::setTopic(std::string const &str) {
 void Channel::setPassword(std::string const &str) {
     password.clear();
     password = str;
+}
+
+bool Channel::isPasswordMatched(std::string const &str) {
+    if (password.empty())
+        return (true);
+    //if (password.size() != str.size())
+    //    return (false);
+    if (!password.compare(str))
+        return (true);
+    return (false);
+}
+
+bool Channel::operatorRequest(std::string const &name, bool add) {
+    std::map<std::string, Client *>::iterator it = users.find(name);
+    if (it == users.end()) {
+        return (false);
+    }
+    bool isOp = isOperator((*it).first);
+    if (add && !isOp) {
+        addOperator((*it).first);
+        return (true);
+    } else if (!add && isOp) {
+        removeOperator((*it).first);
+        return (true);
+    }
+    return (false);
 }

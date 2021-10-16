@@ -92,6 +92,12 @@ bool TextHolder::isTopic() {
     return (false);
 }
 
+bool TextHolder::isMode() {
+    if (!buffer.compare(0, 5, "MODE "))
+        return (true);
+    return (false);
+}
+
 void TextHolder::refillBuffer(std::string const &str) {
     buffer = str + " " + buffer;
 }
@@ -131,4 +137,10 @@ bool TextHolder::empty() {
 
 void TextHolder::insert(size_t pos, char c) {
     buffer.insert(pos, &c, 1);
+}
+
+bool TextHolder::charMatches(size_t pos, char c) {
+    if (buffer[pos] == c)
+        return (true);
+    return (false);
 }

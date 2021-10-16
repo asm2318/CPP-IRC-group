@@ -10,8 +10,8 @@ private:
     std::map<std::string, Client *> users;
     std::string password;
     std::string topic;
-    std::vector<Client *> operators;
-    
+    std::vector<std::string> operators;
+    //std::set<std::string> banlist;
     
 public:
     Channel(std::string const &_name);
@@ -24,10 +24,13 @@ public:
     std::map<std::string, Client *> *getUsers();
     void removeUser(std::string const &nick);
     bool empty();
-    bool isOperator(Client *client);
-    void addOperator(Client *client);
+    bool isOperator(std::string const &nick);
+    void addOperator(std::string const &nick);
+    void removeOperator(std::string const &nick);
     void setTopic(std::string const &str);
     void setPassword(std::string const &str);
+    bool isPasswordMatched(std::string const &str);
+    bool operatorRequest(std::string const &name, bool add);
 };
 
 #endif

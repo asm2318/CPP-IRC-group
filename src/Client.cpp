@@ -144,6 +144,11 @@ void Client::handleRequest(std::string const &str) {
                 buffer->clear();
                 return ;
             }
+        } else if (buffer->isMode()) {
+            if (!handleMode()) {
+                buffer->clear();
+                return ;
+            }
         } else {
             buffer->clear();
             return ;
@@ -155,11 +160,13 @@ void Client::handleRequest(std::string const &str) {
 
 
 void Client::formResponse(std::string const &str) {
-    if (code == 330 || targetToChannel || code == 333) {
-        //if (code != 334)
-            buffer->fillMessage(":" + identifier + " " + buffer->getBuffer().substr(0, buffer->bufferSize() - 2) + "\n\r\n\n");
-        /*else
-            buffer->fillMessage(":" + identifier + " " + buffer->getBuffer().substr(0, buffer->bufferSize() - 2) + " ; User " + nickname +" setting the topic.\n\r\n\n");*/
+    if (code == 330 || targetToChannel || code == 333 || code == 335) {
+        
+        buffer->fillMessage(":" + identifier + " " + buffer->getBuffer().substr(0, buffer->bufferSize() - 2) + "\n\r\n\n");
+        if (code == 335) {
+            buffer->fillMessage(":" + identifier + " MODE " + (*channel).first + " +o " + nickname + "\n\r\n\n");
+            code = 330;
+        }
         std::map<std::string, Client *>::iterator it = (*channel).second->getUsers()->begin();
         while (it != (*channel).second->getUsers()->end()) {
             //std::cout << "Check user: " << (*it).first << "\n";
@@ -194,7 +201,6 @@ void Client::formResponse(std::string const &str) {
             break ;
         }
         case 322: {
-            
             buffer->fillBuffer(" 322 " + nickname + " " + (*channel).first + " " + (*channel).second->getUsersNumberStr() + " :" + (*channel).second->getTopic() + "\n\r\n\n");
             break ;
         }
@@ -212,15 +218,7 @@ void Client::formResponse(std::string const &str) {
         }
         case 353: {
             buffer->fillBuffer(" 353 " + nickname + " = " + (*channel).first + " :");
-            std::map<std::string, Client *>::iterator it = (*channel).second->getUsers()->begin();
-            while (it != (*channel).second->getUsers()->end()) {
-                //std::cout << "Check user: " << (*it).first << "\n";
-                if ((*channel).second->isOperator((*it).second))
-                    buffer->fillBuffer("@");
-                buffer->fillBuffer((*it).second->getNick() + " ");
-                it++;
-            }
-            buffer->fillBuffer("\n\r\n\n");
+            buffer->fillBuffer(getChannelUsersList());
             break ;
         }
         case 366: {
@@ -237,6 +235,10 @@ void Client::formResponse(std::string const &str) {
         }
         case 433: {
             buffer->fillBuffer(" 433 * " + nickname + " :Nickname is already in use\n\r\n\n");
+            break ;
+        }
+        case 475: {
+            buffer->fillBuffer(" 475 * " + (*channel).second->getName() + " :Cannot join channel (+k)\n\r\n\n");
             break ;
         }
     }
@@ -375,11 +377,22 @@ bool Client::joinChannel() {
     
         
     channelName = buffer->getBuffer().substr(pos1, pos2 - pos1);
+    if (channelName[0] != '#')
+        return (false);
     channel = server->getChannelsList()->find(channelName);
     if (channel != server->getChannelsList()->end())
     {
+        if (!(*channel).second->isPasswordMatched(password)) {
+            code = 475;
+            return (true);
+        }
         (*channel).second->addUser(this);
         mychannels.push_back((*channel).second);
+        if ((*channel).second->isOperator(nickname))
+        {
+            code = 335;
+            return (true);
+        }
     } else {
         server->createChannel(channelName, this);
         channel = server->getChannelsList()->find(channelName);
@@ -561,7 +574,7 @@ bool Client::updateTopic() {
     if (channel == server->getChannelsList()->end())
         return (false);
     if (needSetTopic) {
-        if (!(*channel).second->isOperator(this))
+        if (!(*channel).second->isOperator(nickname))
             return (false);
         pos1 = buffer->getBuffer().find("\r\n", pos2);
         if (pos1 == std::string::npos)
@@ -579,4 +592,62 @@ bool Client::updateTopic() {
         code = 332;
     needNoChain = true;
     return (true);
+}
+
+bool Client::handleMode() {
+    size_t pos1 = 5;
+    if (!buffer->charMatches(pos1, '#'))
+        return (false);
+    bool add = true;
+    int handleCase = 0;
+    size_t pos2 = buffer->getBuffer().find(" +", pos1);
+    if (pos2 == std::string::npos) {
+        pos2 = buffer->getBuffer().find(" -", pos1);
+        if (pos2 == std::string::npos)
+            return (false);
+        add = false;
+    }
+    std::string channelName = buffer->getBuffer().substr(pos1, pos2 - pos1);
+    channel = server->getChannelsList()->find(channelName);
+    if (channel == server->getChannelsList()->end() || !(*channel).second->isOperator(nickname))
+        return (false);
+    pos2 += 2;
+    if (buffer->charMatches(pos2, 'o') && buffer->charMatches(pos2 + 1, ' ')) {
+        pos2 += 2;
+        handleCase = 1;
+    }
+    
+    
+    
+    pos1 = buffer->getBuffer().find("\r\n", pos2);
+    if (pos1 == std::string::npos) {
+        return (false);
+    }
+    std::string target = buffer->getBuffer().substr(pos2, pos1 - pos2);
+    switch (handleCase) {
+        case 1: {
+            if (!(*channel).second->operatorRequest(target, add))
+                return (false);
+            code = 330;
+            return (true);
+        }
+            
+            
+            
+    }
+    return (false);
+}
+
+std::string const Client::getChannelUsersList() const{
+    std::string result;
+    std::map<std::string, Client *>::iterator it = (*channel).second->getUsers()->begin();
+    while (it != (*channel).second->getUsers()->end()) {
+        //std::cout << "Check user: " << (*it).first << "\n";
+        if ((*channel).second->isOperator((*it).first))
+            result += "@";
+        result += ((*it).second->getNick() + " ");
+        it++;
+    }
+    result += "\n\r\n\n";
+    return (result);
 }

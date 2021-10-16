@@ -97,6 +97,8 @@ public:
     void addChannel(Channel *c);
     bool nickIsAcceptable();
     bool updateTopic();
+    bool handleMode();
+    std::string const getChannelUsersList() const;
 };
 
 #include "Server.hpp"

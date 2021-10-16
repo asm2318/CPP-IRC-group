@@ -27,6 +27,7 @@ public:
     bool isNames();
     bool isPart();
     bool isTopic();
+    bool isMode();
     void refillBuffer(std::string const &str);
     bool reserveIsEmpty();
     void handleReserved();
@@ -35,6 +36,7 @@ public:
     void clear();
     bool empty();
     void insert(size_t pos, char c);
+    bool charMatches(size_t pos, char c);
 };
 #endif
 
