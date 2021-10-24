@@ -51,7 +51,7 @@ int main (int argc, char *argv[])
     int port_network = 1000;
     std::string pass_network = "p";
     int port = 1001;
-    std::string pass = "c";
+    std::string pass = "";
 
 	if (argc >= 5)
 		incorrect_params();
@@ -85,7 +85,7 @@ int main (int argc, char *argv[])
     Server *server;
 
     try {
-        server = new Server(port, host);
+        server = new Server(port, host, pass);
     } catch (Exception &e) {
         std::cout << e.what() << std::endl << " | Server stopped." << std::endl;
         exit (1);

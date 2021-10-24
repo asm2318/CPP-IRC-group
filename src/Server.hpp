@@ -29,10 +29,10 @@ private:
     int descriptor;
     struct timeval timeout;
     struct sockaddr_in addr;
-    //std::string ip_address_str;
+    std::string const password;
     
 public:
-    Server(int port, std::string host);
+    Server(int port, std::string host, std::string const &pass);
     ~Server();
     
     void refillSets();
@@ -46,6 +46,8 @@ public:
     std::map<std::string, Channel *> *getChannelsList();
     Client *findUser(std::string const &nick);
     bool createChannel(std::string const &name, Client *client);
+    bool hasPassword();
+    bool passwordMatch(std::string const &pass);
 };
 
 #endif

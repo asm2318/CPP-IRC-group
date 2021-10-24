@@ -2,7 +2,7 @@
 #include "Client.hpp"
 #include "Channel.hpp"
 
-Server::Server(int port, std::string host): _port(port) {
+Server::Server(int port, std::string host, std::string const &pass): _port(port), password(pass) {
 	timeout.tv_sec = 5;
 	timeout.tv_usec = 0;
 	descriptor = socket(AF_INET, SOCK_STREAM, 0);
@@ -79,7 +79,7 @@ void Server::refillSets() {
             itC = allclients.erase(itC);
             continue ;
         }
-        if ((*itC)->getStatus() == waitForNick || (*itC)->getStatus() == waitForRequest)
+        if ((*itC)->getStatus() == waitForNick || (*itC)->getStatus() == waitForRequest || (*itC)->getStatus() == waitForPass)
             FD_SET((*itC)->getDescriptor(), &read_current);
         else if ((*itC)->getStatus() == waitForResponse || (*itC)->getStatus() == waitForResponseChain)
             FD_SET((*itC)->getDescriptor(), &write_current);
@@ -205,4 +205,12 @@ bool Server::createChannel(std::string const &name, Client *client) {
     client->addChannel(name, newChannel);
     newChannel->addOperator(client->getNick());
     return (true);
+}
+
+bool Server::hasPassword() {
+    return (!password.empty());
+}
+
+bool Server::passwordMatch(std::string const &pass) {
+    return (password == pass);
 }

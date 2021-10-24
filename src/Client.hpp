@@ -23,6 +23,7 @@ class Server;
 class Channel;
 
 enum Status{
+    waitForPass,
     waitForNick,
     waitForRequest,
     waitForResponse,
@@ -102,6 +103,7 @@ public:
     bool handleMode();
     std::string const getChannelUsersList() const;
     bool executeKick();
+    std::string const checkForPassword() const;
 };
 
 #include "Server.hpp"

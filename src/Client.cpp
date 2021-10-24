@@ -14,7 +14,13 @@ Client::Client(int &port, std::map<std::string, Client *> &users, Server *_serve
     if (fcntl(descriptor, F_SETFL, O_NONBLOCK) < 0)
         throw Exception("Client fcntl exception");
     requestLen = 0;
-    status = waitForNick;
+    if (server->hasPassword()) {
+        status = waitForPass;
+        std::cout << "wait for pass\n";
+    } else {
+        status = waitForNick;
+        std::cout << "wait for nick\n";
+    }
     reservedStatus = Null;
     responsePos = 0;
     gettimeofday(&timer, 0);
@@ -95,7 +101,17 @@ void Client::handleRequest(std::string const &str) {
         }
     }
     
-    if (status == waitForNick) {
+    if (status == waitForPass) {
+        std::cout << "Checking password\n";
+        std::string const &passResult = checkForPassword();
+        if (server->passwordMatch(passResult)) {
+            status = waitForNick;
+            std::cout << "Pass ok\n";
+        } else {
+            code = 464;
+            std::cout << "Pass no ok\n";
+        }
+    } else if (status == waitForNick) {
         nickname.clear();
         bufferNick();
         /*if (nickname.empty())
@@ -246,6 +262,10 @@ void Client::formResponse(std::string const &str) {
         }
         case 433: {
             buffer->fillBuffer(" 433 * " + nickname + " :Nickname is already in use\n\r\n\n");
+            break ;
+        }
+        case 464: {
+            buffer->fillBuffer(" 464 * :Password incorrect\n\r\n\n");
             break ;
         }
         case 475: {
@@ -707,4 +727,8 @@ bool Client::executeKick() {
     //return ((*it).second->exitChannel((*channel).second));
     code = 336;
     return (true);
+}
+
+std::string const Client::checkForPassword() const {
+    return ("");
 }
