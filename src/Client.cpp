@@ -633,6 +633,9 @@ bool Client::handleMode() {
     if (buffer->charMatches(pos2, 'o') && buffer->charMatches(pos2 + 1, ' ')) {
         pos2 += 2;
         handleCase = 1;
+    } else if (buffer->charMatches(pos2, 'b') && buffer->charMatches(pos2 + 1, ' ')) {
+        pos2 += 2;
+        handleCase = 2;
     }
     
     
@@ -649,7 +652,12 @@ bool Client::handleMode() {
             code = 330;
             return (true);
         }
-            
+        case 2: {
+            if ((*channel).second->isOperator(target))
+                return (false);
+            code = 330;
+            return (true);
+        }
             
             
     }
