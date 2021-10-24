@@ -730,5 +730,13 @@ bool Client::executeKick() {
 }
 
 std::string const Client::checkForPassword() const {
-    return ("");
+	size_t pos1 = 0, pos2 = 0;
+	pos1 = buffer->getBuffer().find("PASS ");
+	if (pos1 == std::string::npos)
+		return ("");
+	pos1 += 5;
+	pos2 = buffer->getBuffer().find("\r\n", pos1);
+	if (pos2 == std::string::npos)
+		return ("");
+	return (buffer->getBuffer().substr(pos1, pos2 - pos1));
 }
