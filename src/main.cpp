@@ -80,7 +80,7 @@ int main (int argc, char *argv[])
     Server *server;
 
     try {
-        server = new Server(port);
+        server = new Server(port, host);
     } catch (Exception &e) {
         std::cout << e.what() << std::endl << " | Server stopped." << std::endl;
         exit (1);

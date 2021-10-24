@@ -27,27 +27,27 @@ Server::Server(int port, std::string host): _port(port) {
 		int reuse = 1;
 		if (setsockopt(descriptor, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0)
 			throw Exception("Setsockopt(SO_REUSEADDR) exception");
-	}
+
 #ifdef __APPLE__
-	if (setsockopt(descriptor, SOL_SOCKET, SO_NOSIGPIPE, &reuse, sizeof(reuse)) < 0)
-			throw Exception("Setsockopt(SO_NOSIGPIPE) exception");
+		if (setsockopt(descriptor, SOL_SOCKET, SO_NOSIGPIPE, &reuse, sizeof(reuse)) < 0)
+				throw Exception("Setsockopt(SO_NOSIGPIPE) exception");
 #else
-	signal(SIGPIPE, SIG_IGN);
+		signal(SIGPIPE, SIG_IGN);
 #endif
-	if (bind(descriptor, (sockaddr * ) & addr, sizeof(addr)) < 0)
-		throw Exception("Bind to port/ip exception");
-	if (listen(descriptor, SOMAXCONN) < 0)
-		throw Exception("Listening exception");
-	/*struct in_addr ipAddr = addr.sin_addr;
-	char ip_addr_str[INET_ADDRSTRLEN];
-	inet_ntop(AF_INET, &ipAddr, ip_addr_str, INET_ADDRSTRLEN );
-	ip_address_str = std::string(ip_addr_str);*/
+		if (bind(descriptor, (sockaddr * ) & addr, sizeof(addr)) < 0)
+			throw Exception("Bind to port/ip exception");
+		if (listen(descriptor, SOMAXCONN) < 0)
+			throw Exception("Listening exception");
+		/*struct in_addr ipAddr = addr.sin_addr;
+		char ip_addr_str[INET_ADDRSTRLEN];
+		inet_ntop(AF_INET, &ipAddr, ip_addr_str, INET_ADDRSTRLEN );
+		ip_address_str = std::string(ip_addr_str);*/
 
 
-	//allusers["jnoma"] = NULL;
-	//allchannels["#general"] = new Channel("#general");
-	//allchannels["#admin"] = new Channel("#admin");
-
+		//allusers["jnoma"] = NULL;
+		//allchannels["#general"] = new Channel("#general");
+		//allchannels["#admin"] = new Channel("#admin");
+	}
 }
 
 Server::~Server() {
