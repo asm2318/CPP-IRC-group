@@ -55,7 +55,7 @@ int main (int argc, char *argv[])
 
 	if (argc >= 5)
 		incorrect_params();
-	if (argc >= 2)
+	else if (argc == 4)
 	{
 		std::string network = std::string(argv[1]);
 		int i = 0;
@@ -71,11 +71,16 @@ int main (int argc, char *argv[])
 		host = network.substr(0, network.find(':'));
 		port_network = conv_to_int(network.substr(network.find(':') + 1, network.rfind(':') - 1 - network.find(':')));
 		pass_network = network.substr(network.rfind(':') + 1, network.length() - 1 - network.rfind(':'));
-	}
-	if (argc >= 3)
 		port = conv_to_int(std::string(argv[2]));
-	if (argc == 4)
 		pass = std::string(argv[3]);
+	}
+	else if (argc == 3)
+	{
+		port = conv_to_int(std::string(argv[1]));
+		pass = std::string(argv[2]);
+	}
+	else if (argc == 2)
+		port = conv_to_int(std::string(argv[1]));
 
     Server *server;
 
