@@ -98,6 +98,12 @@ bool TextHolder::isMode() {
     return (false);
 }
 
+bool TextHolder::isKick() {
+    if (!buffer.compare(0, 5, "KICK "))
+        return (true);
+    return (false);
+}
+
 void TextHolder::refillBuffer(std::string const &str) {
     buffer = str + " " + buffer;
 }
