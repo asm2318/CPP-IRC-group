@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
+#include <sstream>
 
 #include "Server.hpp"
 
@@ -20,6 +21,30 @@ void signal_handler(int num)
         isWorking = false;
 }
 
+void incorrect_params(void)
+{
+	std::cout << "Invalid parameters." << std::endl;
+	std::cout << "Usage: ./ircserv [host:port_network:password_network] <port> <password>" << std::endl;
+	exit(1);
+}
+
+int conv_to_int(std::string str)
+{
+	int num;
+	std::stringstream ss;
+	int i = 0;
+
+	while (i < str.length())
+	{
+		if (!std::isdigit(str[i]))
+			incorrect_params();
+		i++;
+	}
+	ss << str;
+	ss >> num;
+	return (num);
+}
+
 int main (int argc, char *argv[])
 {
     std::string host = "localhost";
@@ -27,7 +52,30 @@ int main (int argc, char *argv[])
     std::string pass_network = "p";
     int port = 1001;
     std::string pass = "c";
-    
+
+	if (argc >= 5)
+		incorrect_params();
+	if (argc >= 2)
+	{
+		std::string network = std::string(argv[1]);
+		int i = 0;
+		int ct = 0;
+		while (i < network.length())
+		{
+			if (network[i] == ':')
+				ct++;
+			i++;
+		}
+		if (ct != 2 || (network.rfind(':') - network.find(':')) == 1)
+			incorrect_params();
+		host = network.substr(0, network.find(':'));
+		port_network = conv_to_int(network.substr(network.find(':') + 1, network.rfind(':') - 1 - network.find(':')));
+		pass_network = network.substr(network.rfind(':') + 1, network.length() - 1 - network.rfind(':'));
+	}
+	if (argc >= 3)
+		port = conv_to_int(std::string(argv[2]));
+	if (argc == 4)
+		pass = std::string(argv[3]);
 
     Server *server;
 

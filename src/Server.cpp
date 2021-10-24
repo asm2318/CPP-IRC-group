@@ -2,38 +2,52 @@
 #include "Client.hpp"
 #include "Channel.hpp"
 
-Server::Server(int port): _port(port) {
-    timeout.tv_sec = 5;
-    timeout.tv_usec = 0;
-    descriptor = socket(AF_INET, SOCK_STREAM, 0);
-    if (descriptor < 0)
-        throw Exception("Socket creation exception");
-    bzero(&addr, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htons(INADDR_ANY);
-    addr.sin_port = htons(port);
-    int reuse = 1;
-    if (setsockopt(descriptor, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0)
-        throw Exception("Setsockopt(SO_REUSEADDR) exception");
-    #ifdef __APPLE__
-    if (setsockopt(descriptor, SOL_SOCKET, SO_NOSIGPIPE, &reuse, sizeof(reuse)) < 0)
-        throw Exception("Setsockopt(SO_NOSIGPIPE) exception");
-    #else
-        signal(SIGPIPE, SIG_IGN);
-    #endif
-    if (bind(descriptor, (sockaddr *)&addr, sizeof(addr)) < 0)
-        throw Exception("Bind to port/ip exception");
-    if (listen(descriptor, SOMAXCONN) < 0)
-        throw Exception("Listening exception");
-    /*struct in_addr ipAddr = addr.sin_addr;
-    char ip_addr_str[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, &ipAddr, ip_addr_str, INET_ADDRSTRLEN );
-    ip_address_str = std::string(ip_addr_str);*/
-    
-    
-    //allusers["jnoma"] = NULL;
-    //allchannels["#general"] = new Channel("#general");
-    //allchannels["#admin"] = new Channel("#admin");
+Server::Server(int port, std::string host): _port(port) {
+	timeout.tv_sec = 5;
+	timeout.tv_usec = 0;
+	descriptor = socket(AF_INET, SOCK_STREAM, 0);
+	if (descriptor < 0)
+		throw Exception("Socket creation exception");
+	bzero(&addr, sizeof(addr));
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(port);
+	if (host.compare("localhost") != 0 && host.compare("127.0.0.1") != 0)
+	{
+		hostent* _host = gethostbyname(host.c_str());
+		if (!_host)
+			throw Exception("Unknown address exception");
+		inet_pton(addr.sin_family, _host->h_name, &addr.sin_addr);
+		if (connect(descriptor, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0)
+			throw Exception("Cannot connect to server.");
+		fcntl(descriptor, F_SETFL, O_NONBLOCK);
+	}
+	else
+	{
+		addr.sin_addr.s_addr = htons(INADDR_ANY);
+		int reuse = 1;
+		if (setsockopt(descriptor, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0)
+			throw Exception("Setsockopt(SO_REUSEADDR) exception");
+	}
+#ifdef __APPLE__
+	if (setsockopt(descriptor, SOL_SOCKET, SO_NOSIGPIPE, &reuse, sizeof(reuse)) < 0)
+			throw Exception("Setsockopt(SO_NOSIGPIPE) exception");
+#else
+	signal(SIGPIPE, SIG_IGN);
+#endif
+	if (bind(descriptor, (sockaddr * ) & addr, sizeof(addr)) < 0)
+		throw Exception("Bind to port/ip exception");
+	if (listen(descriptor, SOMAXCONN) < 0)
+		throw Exception("Listening exception");
+	/*struct in_addr ipAddr = addr.sin_addr;
+	char ip_addr_str[INET_ADDRSTRLEN];
+	inet_ntop(AF_INET, &ipAddr, ip_addr_str, INET_ADDRSTRLEN );
+	ip_address_str = std::string(ip_addr_str);*/
+
+
+	//allusers["jnoma"] = NULL;
+	//allchannels["#general"] = new Channel("#general");
+	//allchannels["#admin"] = new Channel("#admin");
+
 }
 
 Server::~Server() {

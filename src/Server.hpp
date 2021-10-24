@@ -31,7 +31,7 @@ private:
     //std::string ip_address_str;
     
 public:
-    Server(int port);
+    Server(int port, std::string host);
     ~Server();
     
     void refillSets();
