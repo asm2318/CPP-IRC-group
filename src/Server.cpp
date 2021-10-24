@@ -202,7 +202,7 @@ bool Server::createChannel(std::string const &name, Client *client) {
     Channel *newChannel = new Channel(name);
     allchannels[name] = newChannel;
     newChannel->addUser(client);
-    client->addChannel(newChannel);
+    client->addChannel(name, newChannel);
     newChannel->addOperator(client->getNick());
     return (true);
 }

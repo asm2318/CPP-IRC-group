@@ -149,6 +149,11 @@ void Client::handleRequest(std::string const &str) {
                 buffer->clear();
                 return ;
             }
+        } else if (buffer->isKick()) {
+            if (!executeKick()) {
+                buffer->clear();
+                return ;
+            }
         } else {
             buffer->clear();
             return ;
@@ -160,7 +165,7 @@ void Client::handleRequest(std::string const &str) {
 
 
 void Client::formResponse(std::string const &str) {
-    if (code == 330 || targetToChannel || code == 333 || code == 335) {
+    if (code == 330 || targetToChannel || code == 333 || code == 335 || code == 336) {
         
         buffer->fillMessage(":" + identifier + " " + buffer->getBuffer().substr(0, buffer->bufferSize() - 2) + "\n\r\n\n");
         if (code == 335) {
@@ -170,10 +175,16 @@ void Client::formResponse(std::string const &str) {
         std::map<std::string, Client *>::iterator it = (*channel).second->getUsers()->begin();
         while (it != (*channel).second->getUsers()->end()) {
             //std::cout << "Check user: " << (*it).first << "\n";
-            if ((*it).second != this || code == 330 || code == 334)
+            if ((*it).second != this || code == 330 || code == 334 || code == 336) {
                 (*it).second->outerRefillBuffer(buffer->getMessage());
-            else
-                code = 0;
+                if (code == 336 && victimName == (*it).first) {
+                    (*it).second->exitChannel((*channel).first);
+                    std::map<std::string, Client *>::iterator prevIt = it++;
+                    (*channel).second->removeUser((*prevIt).first);
+                    continue ;
+                }
+            } //else
+                //code = 0;
             it++;
         }
         if (code == 333)
@@ -387,7 +398,7 @@ bool Client::joinChannel() {
             return (true);
         }
         (*channel).second->addUser(this);
-        mychannels.push_back((*channel).second);
+        mychannels[(*channel).first] = (*channel).second;
         if ((*channel).second->isOperator(nickname))
         {
             code = 335;
@@ -415,31 +426,38 @@ bool Client::leaveChannel() {
     else
         channelName = buffer->getBuffer().substr(pos1, pos2 - pos1);
     channel = server->getChannelsList()->find(channelName);
-    if (channel != server->getChannelsList()->end())
-    {
+    if (channel != server->getChannelsList()->end()) {
         (*channel).second->removeUser(nickname);
-        std::vector<Channel *>::iterator it = mychannels.begin();
-        while (it != mychannels.end()) {
-            if (*it == (*channel).second) {
-                mychannels.erase(it);
-                //targetToChannel = true;
-                code = 333;
-                //std::cout << "Code set to " << code << "\n";
-                return (true);
-            }
-            it++;
+        return (exitChannel((*channel).first));
+    }
+    return (false);
+}
+
+bool Client::exitChannel(std::string const &name) {
+    /*std::vector<Channel *>::iterator it = mychannels.begin();
+    while (it != mychannels.end()) {
+        if (*it == chnl) {
+            mychannels.erase(it);
+            code = 333;
+            return (true);
         }
+        it++;
+    }*/
+    if (mychannels.erase(name))
+    {
+        code = 333;
+        return (true);
     }
     return (false);
 }
 
 void Client::leaveAllChannels() {
     //std::cout << "Leaving all channels\n";
-    std::vector<Channel *>::iterator it1 = mychannels.begin();
+    std::map<std::string, Channel *>::iterator it1 = mychannels.begin();
     while (it1 != mychannels.end())
     {
-        (*it1)->removeUser(nickname);
-        std::string quitMessage = ":" + identifier + " PART " + (*it1)->getName() + " :user disconnected from server\n\r\n\n";
+        (*it1).second->removeUser(nickname);
+        std::string quitMessage = ":" + identifier + " PART " + (*it1).first + " :user disconnected from server\n\r\n\n";
         std::map<std::string, Client *>::iterator it2 = (*channel).second->getUsers()->begin();
         while (it2 != (*channel).second->getUsers()->end()) {
             (*it2).second->outerRefillBuffer(quitMessage);
@@ -496,8 +514,8 @@ bool Client::handleMessage() {
     else
         target = buffer->getBuffer().substr(pos1, pos2 - pos1);
     if (target[0] == '#') {
-        channel = server->getChannelsList()->find(target);
-        if (channel != server->getChannelsList()->end())
+        channel = mychannels.find(target);
+        if (channel != mychannels.end())
             targetToChannel = true;
         else
             return (false);
@@ -536,8 +554,8 @@ bool Client::readyForReserve() {
     return (!buffer->reserveIsEmpty());// && buffer->empty() && status == waitForRequest);
 }
 
-void Client::addChannel(Channel *c) {
-    mychannels.push_back(c);
+void Client::addChannel(std::string const &name, Channel *c) {
+    mychannels[name] = c;
 }
 
 bool Client::nickIsAcceptable() {
@@ -615,6 +633,9 @@ bool Client::handleMode() {
     if (buffer->charMatches(pos2, 'o') && buffer->charMatches(pos2 + 1, ' ')) {
         pos2 += 2;
         handleCase = 1;
+    } else if (buffer->charMatches(pos2, 'b') && buffer->charMatches(pos2 + 1, ' ')) {
+        pos2 += 2;
+        handleCase = 2;
     }
     
     
@@ -631,7 +652,12 @@ bool Client::handleMode() {
             code = 330;
             return (true);
         }
-            
+        case 2: {
+            if ((*channel).second->isOperator(target))
+                return (false);
+            code = 330;
+            return (true);
+        }
             
             
     }
@@ -650,4 +676,35 @@ std::string const Client::getChannelUsersList() const{
     }
     result += "\n\r\n\n";
     return (result);
+}
+
+bool Client::executeKick() {
+    size_t pos1 = 5;
+    size_t pos2 = buffer->getBuffer().find("\r\n", pos1);
+    if (pos2 == std::string::npos)
+        return (false);
+    std::string channelName, reason;
+    size_t pos3 = buffer->getBuffer().find(" :", pos1);
+    if (pos3 != std::string::npos) {
+        reason = buffer->getBuffer().substr(pos3 + 2, pos2 - pos3 - 2);
+        pos2 = pos3;
+    } else
+        reason = "";
+    size_t pos4 = buffer->getBuffer().find(" ", pos1);
+    if (pos4 != std::string::npos && pos4 != pos3) {
+        victimName = buffer->getBuffer().substr(pos4 + 1, pos2 - pos4 - 1);
+        pos2 = pos4;
+    } else
+        return (false);
+    
+    channelName = buffer->getBuffer().substr(pos1, pos2 - pos1);
+    if (channelName[0] != '#' || !(*channel).second->isOperator(nickname))
+        return (false);
+    channel = server->getChannelsList()->find(channelName);
+    std::map<std::string, Client *>::iterator it = (*channel).second->getUsers()->find(victimName);
+    if (it == (*channel).second->getUsers()->end() || (*channel).second->isOperator(victimName))
+        return (false);
+    //return ((*it).second->exitChannel((*channel).second));
+    code = 336;
+    return (true);
 }

@@ -1,5 +1,6 @@
 #ifndef CHANNEL_HPP
 #define CHANNEL_HPP
+#include <set>
 #include <sstream>
 
 #include "Client.hpp"
@@ -11,7 +12,7 @@ private:
     std::string password;
     std::string topic;
     std::vector<std::string> operators;
-    //std::set<std::string> banlist;
+    std::set<std::string> banlist;
     
 public:
     Channel(std::string const &_name);

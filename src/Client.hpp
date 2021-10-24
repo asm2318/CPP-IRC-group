@@ -57,6 +57,7 @@ private:
     std::string username;
     std::string realname;
     std::string identifier;
+    std::string victimName;
     
     Server *server;
     
@@ -65,7 +66,7 @@ private:
     Status reservedStatus;
     bool targetToChannel;
     
-    std::vector<Channel *> mychannels;
+    std::map<std::string, Channel *> mychannels;
     Client *privateChat;
     bool needNoChain;
 
@@ -87,6 +88,7 @@ public:
     void bufferNick();
     bool joinChannel();
     bool leaveChannel();
+    bool exitChannel(std::string const &name);
     void leaveAllChannels();
     void setStatus(Status st);
     void outerRefillBuffer(std::string const & str);
@@ -94,11 +96,12 @@ public:
     bool handleMessage();
     std::string &getID();
     bool readyForReserve();
-    void addChannel(Channel *c);
+    void addChannel(std::string const &name, Channel *c);
     bool nickIsAcceptable();
     bool updateTopic();
     bool handleMode();
     std::string const getChannelUsersList() const;
+    bool executeKick();
 };
 
 #include "Server.hpp"

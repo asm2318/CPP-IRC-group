@@ -28,6 +28,7 @@ public:
     bool isPart();
     bool isTopic();
     bool isMode();
+    bool isKick();
     void refillBuffer(std::string const &str);
     bool reserveIsEmpty();
     void handleReserved();
