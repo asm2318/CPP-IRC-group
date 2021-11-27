@@ -104,6 +104,12 @@ bool TextHolder::isKick() {
     return (false);
 }
 
+bool TextHolder::isNick() {
+    if (!buffer.compare(0, 5, "NICK "))
+        return (true);
+    return (false);
+}
+
 void TextHolder::refillBuffer(std::string const &str) {
     buffer = str + " " + buffer;
 }

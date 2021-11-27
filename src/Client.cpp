@@ -105,22 +105,24 @@ void Client::handleRequest(std::string const &str) {
         std::cout << "Checking password\n";
         std::string const &passResult = checkForPassword();
         if (server->passwordMatch(passResult)) {
-            status = waitForNick;
+            code = 2;
             std::cout << "Pass ok\n";
         } else {
             code = 464;
             std::cout << "Pass no ok\n";
         }
     } else if (status == waitForNick) {
-        nickname.clear();
+        tempNickname.clear();
         bufferNick();
         /*if (nickname.empty())
             code = 431;
         else */
         if (nickIsAcceptable()) {
-            if (allusers->count(nickname))
+            if (allusers->count(tempNickname))
                 code = 433;
             else {
+                nickname = tempNickname;
+                tempNickname.clear();
                 allusers->insert(std::make_pair(nickname, this));
                 isAuthorized = true;
                 code = 1;
@@ -170,6 +172,11 @@ void Client::handleRequest(std::string const &str) {
                 buffer->clear();
                 return ;
             }
+        } else if (buffer->isNick()) {
+            if (!handleNickChange()) {
+                buffer->clear();
+                return ;
+            }
         } else {
             buffer->clear();
             return ;
@@ -203,9 +210,14 @@ void Client::formResponse(std::string const &str) {
                 //code = 0;
             it++;
         }
+    
         if (code == 333)
             outerRefillBuffer(buffer->getMessage());
         targetToChannel = false;
+    } else if (code == 337) {
+        buffer->fillMessage(":" + identifier + " " + buffer->getBuffer().substr(0, buffer->bufferSize() - 2) + "\n\r\n\n");
+        identifier = nickname + "!" + username + "@" + ip_address_str;
+        broadcastToAllChannels();
     } else if (privateChat != NULL) {
         privateChat->outerRefillBuffer(":" + identifier + " " + buffer->getBuffer().substr(0, buffer->bufferSize() - 2) + "\n\r\n\n");
         privateChat = NULL;
@@ -299,7 +311,7 @@ void Client::sendResponse()
     }
     responsePos += send_size;
     if (responsePos == responseSize - 1) {
-        if (code > 430 && code < 437) {
+        if (code > 430 && code < 437 && !isAuthorized) {
             //std::cout << "Status: nick | nick = " << nickname << " | user = " << username << " | realname = " << realname << "\n";
             status = waitForNick;
         } else if (code == 322) {
@@ -320,6 +332,10 @@ void Client::sendResponse()
         } else if (code == 353) {
             status = waitForResponseChain;
             code = 366;
+        } else if (code == 2) {
+            status = waitForNick;
+        } else if (code == 464) {
+            status = waitForPass;
         } else {
             status = waitForRequest;
             needNoChain = false;
@@ -373,18 +389,18 @@ void Client::bufferNick() {
     size_t pos1 = 0, pos2 = 0;
     pos1 = buffer->getBuffer().find("NICK ");
     if (pos1 == std::string::npos) {
-        nickname = "";
+        tempNickname = "";
         return ;
     }
     pos1 += 5;
     pos2 = buffer->getBuffer().find("\r\n", pos1);
     if (pos2 == std::string::npos) {
-        nickname = "";
+        tempNickname = "";
         return ;
     }
     /*if (buffer[pos2 - 1] == '\r')
         pos2--;*/
-    nickname = buffer->getBuffer().substr(pos1, pos2 - pos1);
+    tempNickname = buffer->getBuffer().substr(pos1, pos2 - pos1);
 }
 
 bool Client::joinChannel() {
@@ -408,7 +424,7 @@ bool Client::joinChannel() {
     
         
     channelName = buffer->getBuffer().substr(pos1, pos2 - pos1);
-    if (channelName[0] != '#')
+    if (channelName[0] != '#' || mychannels.find(channelName) != mychannels.end())
         return (false);
     channel = server->getChannelsList()->find(channelName);
     if (channel != server->getChannelsList()->end())
@@ -579,14 +595,14 @@ void Client::addChannel(std::string const &name, Channel *c) {
 }
 
 bool Client::nickIsAcceptable() {
-    size_t length = nickname.size();
+    size_t length = tempNickname.size();
     if (!length) {
         code = 431;
         return (false);
     }
     char c;
     for (size_t i = 0; i < length; i++) {
-        c = nickname[i];
+        c = tempNickname[i];
         if (!((c >= 34 && c <= 36) || (c >= 38 && c <= 41) || (c >= 43 && c <= 57) || (c >= 60 && c <= 63) || (c >= 65 && c <= 125))) {
             code = 432;
             return (false);
@@ -656,6 +672,9 @@ bool Client::handleMode() {
     } else if (buffer->charMatches(pos2, 'b') && buffer->charMatches(pos2 + 1, ' ')) {
         pos2 += 2;
         handleCase = 2;
+    } else if (buffer->charMatches(pos2, 'k') && buffer->charMatches(pos2 + 1, ' ')) {
+        pos2 += 2;
+        handleCase = 3;
     }
     
     
@@ -678,7 +697,16 @@ bool Client::handleMode() {
             code = 330;
             return (true);
         }
-            
+        case 3: {
+            if (!add) {
+                if (!(*channel).second->isPasswordMatched(target))
+                    return (false);
+                (*channel).second->setPassword("");
+            } else
+                (*channel).second->setPassword(target);
+            code = 330;
+            return (true);
+        }
             
     }
     return (false);
@@ -739,4 +767,46 @@ std::string const Client::checkForPassword() const {
 	if (pos2 == std::string::npos)
 		return ("");
 	return (buffer->getBuffer().substr(pos1, pos2 - pos1));
+}
+
+bool Client::handleNickChange() {
+    tempNickname.clear();
+    bufferNick();
+    if (tempNickname == nickname)
+        return (false);
+    if (nickIsAcceptable()) {
+        if (allusers->count(tempNickname))
+            code = 433;
+        else {
+            std::map<std::string, Channel *>::iterator it = mychannels.begin();
+            while (it != mychannels.end())
+            {
+                (*it).second->swapUser(nickname, tempNickname, this);
+                channel = it;
+                it++;
+            }
+            std::swap(nickname, tempNickname);
+            allusers->erase(tempNickname);
+            allusers->insert(std::make_pair(nickname, this));
+            tempNickname.clear();
+            isAuthorized = true;
+            code = 337;
+        }
+    }
+    return (true);
+}
+
+void Client::broadcastToAllChannels() {
+    channel = mychannels.begin();
+    std::map<std::string, Client *>::iterator it;
+    while (channel != mychannels.end()) {
+        it = (*channel).second->getUsers()->begin();
+        while (it != (*channel).second->getUsers()->end()) {
+            if ((*it).second != this)
+                (*it).second->outerRefillBuffer(buffer->getMessage());
+            it++;
+        }
+        channel++;
+    }
+    outerRefillBuffer(buffer->getMessage());
 }

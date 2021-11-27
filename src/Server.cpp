@@ -212,7 +212,7 @@ bool Server::hasPassword() {
 }
 
 bool Server::passwordMatch(std::string const &pass) {
-	if (password.empty)
+	if (password.empty())
 		return (true);
     return (password == pass);
 }

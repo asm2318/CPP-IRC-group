@@ -55,6 +55,7 @@ private:
     bool isAuthorized;
     
     std::string nickname;
+    std::string tempNickname;
     std::string username;
     std::string realname;
     std::string identifier;
@@ -104,6 +105,8 @@ public:
     std::string const getChannelUsersList() const;
     bool executeKick();
     std::string const checkForPassword() const;
+    bool handleNickChange();
+    void broadcastToAllChannels();
 };
 
 #include "Server.hpp"

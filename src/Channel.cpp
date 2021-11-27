@@ -15,6 +15,11 @@ void Channel::addUser(Client *client) {
     std::cout << "\033[1;33mClient_" << client->getDescriptor() << " | " << client->getNick() << " has joined to channel " << name << "\033[0m\n";
 }
 
+void Channel::addUser(Client *client, std::string const &nick) {
+    users.insert(std::make_pair(nick, client));
+    std::cout << "\033[1;33mClient_" << client->getDescriptor() << " | " << client->getNick() << " has changed to " << nick << " in " << name << "\033[0m\n";
+}
+
 std::string const &Channel::getName() {
     return (name);
 }
@@ -104,4 +109,20 @@ bool Channel::operatorRequest(std::string const &name, bool add) {
         return (true);
     }
     return (false);
+}
+
+void Channel::swapUser(std::string const &oldNickname, std::string const &newNickname, Client *client) {
+    std::vector<std::string>::iterator it = operators.begin();
+    removeUser(oldNickname);
+    addUser(client, newNickname);
+    std::cout << "swap user OK\n";
+    while (it != operators.end()) {
+        if (*it == oldNickname) {
+            operators.erase(it);
+            operators.push_back(newNickname);
+            std::cout << "operator OK\n";
+            return ;
+        }
+        it++;
+    }
 }

@@ -13,6 +13,7 @@ private:
     std::string topic;
     std::vector<std::string> operators;
     std::set<std::string> banlist;
+    void addUser(Client *client, std::string const &nick);
     
 public:
     Channel(std::string const &_name);
@@ -32,6 +33,7 @@ public:
     void setPassword(std::string const &str);
     bool isPasswordMatched(std::string const &str);
     bool operatorRequest(std::string const &name, bool add);
+    void swapUser(std::string const &oldNickname, std::string const &newNickname, Client *client);
 };
 
 #endif

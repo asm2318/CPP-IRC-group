@@ -29,6 +29,7 @@ public:
     bool isTopic();
     bool isMode();
     bool isKick();
+    bool isNick();
     void refillBuffer(std::string const &str);
     bool reserveIsEmpty();
     void handleReserved();
