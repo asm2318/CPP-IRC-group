@@ -126,3 +126,28 @@ void Channel::swapUser(std::string const &oldNickname, std::string const &newNic
         it++;
     }
 }
+
+void Channel::handleBan(bool add, std::string const target) {
+    if (!add) {
+        banlist.erase(target);
+        return ;
+    }
+    banlist.insert(target);
+}
+
+bool Channel::isBanned(std::string const &name, std::string const &host) {
+    if (banlist.find(name) != banlist.end())
+        return (true);
+    std::set<std::string>::iterator it = banlist.begin();
+    while (it != banlist.end()) {
+        if (maskMatched(*it, host))
+            return (true);
+    }
+    return (false);
+}
+
+bool Channel::maskMatched(std::string const &value, std::string const &mask) {
+    if (mask.size() > value.size())
+        return false;
+    return std::equal(mask.rbegin(), mask.rend(), mask.rbegin());
+}

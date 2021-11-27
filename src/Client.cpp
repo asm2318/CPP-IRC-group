@@ -280,8 +280,12 @@ void Client::formResponse(std::string const &str) {
             buffer->fillBuffer(" 464 * :Password incorrect\n\r\n\n");
             break ;
         }
+        case 474: {
+            buffer->fillBuffer(" 474 * " + (*channel).first + " :Cannot join channel (+b)\n\r\n\n");
+            break ;
+        }
         case 475: {
-            buffer->fillBuffer(" 475 * " + (*channel).second->getName() + " :Cannot join channel (+k)\n\r\n\n");
+            buffer->fillBuffer(" 475 * " + (*channel).first + " :Cannot join channel (+k)\n\r\n\n");
             break ;
         }
     }
@@ -429,6 +433,10 @@ bool Client::joinChannel() {
     channel = server->getChannelsList()->find(channelName);
     if (channel != server->getChannelsList()->end())
     {
+        if ((*channel).second->isBanned(nickname, ip_address_str)) {
+            code = 474;
+            return (true);
+        }
         if (!(*channel).second->isPasswordMatched(password)) {
             code = 475;
             return (true);
@@ -695,7 +703,7 @@ bool Client::handleMode() {
             if ((*channel).second->isOperator(target))
                 return (false);
             code = 330;
-            return (true);
+            return (executeBan(add));
         }
         case 3: {
             if (!add) {
@@ -757,6 +765,32 @@ bool Client::executeKick() {
     return (true);
 }
 
+bool Client::executeBan(bool add) {
+    return false;
+    size_t pos1 = 5;
+    size_t pos2 = buffer->getBuffer().find("\r\n", pos1);
+    if (pos2 == std::string::npos)
+        return (false);
+    std::string channelName, target;
+    size_t pos3 = buffer->getBuffer().find(" :", pos1);
+    if (pos3 != std::string::npos) {
+        target = buffer->getBuffer().substr(pos3 + 2, pos2 - pos3 - 2);
+        pos2 = pos3;
+    } else
+        target = "";
+        
+    channelName = buffer->getBuffer().substr(pos1, pos2 - pos1);
+    if (channelName[0] != '#' || !(*channel).second->isOperator(nickname))
+        return (false);
+    if (target.empty())
+        return (printBanList(add));
+    else {
+        channel = server->getChannelsList()->find(channelName);
+        (*channel).second->handleBan(add, target);
+    }
+    return (true);
+}
+
 std::string const Client::checkForPassword() const {
 	size_t pos1 = 0, pos2 = 0;
 	pos1 = buffer->getBuffer().find("PASS ");
@@ -809,4 +843,8 @@ void Client::broadcastToAllChannels() {
         channel++;
     }
     outerRefillBuffer(buffer->getMessage());
+}
+
+bool Client::printBanList(bool add){
+    return false;
 }

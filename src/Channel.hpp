@@ -34,6 +34,9 @@ public:
     bool isPasswordMatched(std::string const &str);
     bool operatorRequest(std::string const &name, bool add);
     void swapUser(std::string const &oldNickname, std::string const &newNickname, Client *client);
+    void handleBan(bool add, std::string const target);
+    bool isBanned(std::string const &name, std::string const &host);
+    bool maskMatched(std::string const &name, std::string const &host);
 };
 
 #endif

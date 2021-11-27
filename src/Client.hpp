@@ -104,9 +104,11 @@ public:
     bool handleMode();
     std::string const getChannelUsersList() const;
     bool executeKick();
+    bool executeBan(bool add);
     std::string const checkForPassword() const;
     bool handleNickChange();
     void broadcastToAllChannels();
+    bool printBanList(bool add);
 };
 
 #include "Server.hpp"
