@@ -187,7 +187,7 @@ std::string Bot::calculate(std::string text)
 	int pivot;
 	char oper;
 
-	if (text[0] == '(' && text[text.length() - 1] == ')' && countBrackets(text) == 1)
+	if (text[0] == '(' && text[text.length() - 1] == ')' && isOuterBrackets(text) == 1)
 	{
 		text.erase(text.begin());
 		text.erase(text.end() - 1);
@@ -239,17 +239,24 @@ std::string Bot::calculate(std::string text)
 	}
 }
 
-int Bot::countBrackets(std::string text)
+int Bot::isOuterBrackets(std::string text)
 {
 	int ct = 0;
-	size_t i = 0;
-	while (i < text.length())
+	size_t i = 1;
+	while (i < text.length() - 1)
 	{
 		if (text[i] == '(')
 			ct++;
+		if (text[i] == ')')
+			ct--;
+		if (ct < 0)
+			return (0);
 		i++;
 	}
-	return (ct);
+	if (ct == 0)
+		return (1);
+	else
+		return (0);
 }
 
 int Bot::countOperators(std::string text)
@@ -280,7 +287,7 @@ std::string Bot::operate(std::string text)
 		i++;
 	ss1 << text.substr(0, i);
 	ss1 >> a;
-	ss2 << text.substr(i + 1, text.length() - i - 1);
+	ss2 << text.substr(i + 1, text.length() - i);
 	ss2 >> b;
 	if (text[i] == '+')
 		c = a + b;

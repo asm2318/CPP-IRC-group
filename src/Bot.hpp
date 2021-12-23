@@ -39,7 +39,7 @@ private:
 	std::string calculate(std::string text);
 	int countOperators(std::string text);
 	std::string operate(std::string text);
-	int countBrackets(std::string text);
+	int isOuterBrackets(std::string text);
 
 public:
 	Bot(std::string serverPort, std::string serverPass);
