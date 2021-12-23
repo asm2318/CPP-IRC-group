@@ -2,7 +2,7 @@
 #include "Client.hpp"
 #include "Channel.hpp"
 
-Server::Server(int port, std::string host, std::string const &pass): _port(port), password(pass) {
+Server::Server(int port, std::string host, std::string const &pass): password(pass) {
 	timeout.tv_sec = 5;
 	timeout.tv_usec = 0;
 	descriptor = socket(AF_INET, SOCK_STREAM, 0);
@@ -165,7 +165,7 @@ void Server::readRequests() {
 
 void Server::sendResponses() {
     //std::cout << "\033[1;34mSEND RESPONSES BLOCK\033[0m\n";
-    int ret;
+    //int ret;
     int descr;
     std::vector<Client *>::iterator itC = allclients.begin();
     while (itC != allclients.end())

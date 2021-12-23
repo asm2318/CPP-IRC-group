@@ -32,7 +32,7 @@ int conv_to_int(std::string str)
 {
 	int num;
 	std::stringstream ss;
-	int i = 0;
+	size_t i = 0;
 
 	while (i < str.length())
 	{
@@ -58,7 +58,7 @@ int main (int argc, char *argv[])
 	else if (argc == 4)
 	{
 		std::string network = std::string(argv[1]);
-		int i = 0;
+		size_t i = 0;
 		int ct = 0;
 		while (i < network.length())
 		{

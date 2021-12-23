@@ -25,7 +25,6 @@ private:
     std::map<std::string, Client *> allusers;
     std::map<std::string, Channel *> allchannels;
     char buf[BUFFERSIZE + 1];
-    int _port;
     int descriptor;
     struct timeval timeout;
     struct sockaddr_in addr;

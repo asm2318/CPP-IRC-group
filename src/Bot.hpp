@@ -1,7 +1,7 @@
 #ifndef FT_IRC1_BOT_HPP
 #define FT_IRC1_BOT_HPP
 
-#include "Exception.hpp"
+#include <cmath>
 #include <iostream>
 #include <csignal>
 #include <string>
@@ -30,7 +30,16 @@ private:
 	int			_fd;
 	struct sockaddr_in _addr;
 
+	int errflag;
+
 	void sendData(std::string msg);
+	std::string makeResponse(std::string text);
+	int check_correct(std::string text);
+	int check_correct2(std::string text);
+	std::string calculate(std::string text);
+	int countOperators(std::string text);
+	std::string operate(std::string text);
+	int countBrackets(std::string text);
 
 public:
 	Bot(std::string serverPort, std::string serverPass);
@@ -38,7 +47,7 @@ public:
 	Bot(const Bot & other);
 	Bot &operator=(const Bot & other);
 
-	void connect(void);
+	void connect_to_server(void);
 	void auth(void);
 	std::string receiveMessage(void);
 	void parseMessage(std::string msg);

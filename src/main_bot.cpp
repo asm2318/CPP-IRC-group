@@ -23,9 +23,16 @@ int main(int argc, char **argv)
 	else
 		std::cout << "Bot is working..." << std::endl;
 
-	Bot bot(argv[1], "");
+	std::string pass;
 
-	bot.connect();
+	if (argc == 3)
+		pass = argv[2];
+	else
+		pass = "";
+
+	Bot bot(argv[1], pass);
+
+	bot.connect_to_server();
 	bot.auth();
 
 	std::string msg;
@@ -33,7 +40,8 @@ int main(int argc, char **argv)
 	while(isWorking)
 	{
 		msg = bot.receiveMessage();
-		bot.parseMessage(msg);
+		if (msg.compare("") != 0)
+			bot.parseMessage(msg);
 	}
 	return 0;
 }

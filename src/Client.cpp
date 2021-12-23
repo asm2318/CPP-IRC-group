@@ -846,5 +846,6 @@ void Client::broadcastToAllChannels() {
 }
 
 bool Client::printBanList(bool add){
+	(void)add;
     return false;
 }
